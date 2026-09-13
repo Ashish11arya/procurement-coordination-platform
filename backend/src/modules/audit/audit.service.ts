@@ -117,15 +117,28 @@ export class AuditService {
     return { logs, total };
   }
 
-  private sanitizeObject(obj?: Record<string, any> | null): Record<string, any> | null {
+  private sanitizeObject(
+    obj?: Record<string, any> | null,
+    depth = 0,
+    seen = new WeakSet(),
+  ): Record<string, any> | null {
     if (!obj || typeof obj !== 'object') return null;
+    if (depth > 5 || seen.has(obj)) return null;
+    seen.add(obj);
+
+    const targetObj =
+      typeof (obj as any).toObject === 'function'
+        ? (obj as any).toObject()
+        : obj;
+
     const sanitized: Record<string, any> = {};
 
-    for (const [key, val] of Object.entries(obj)) {
+    for (const [key, val] of Object.entries(targetObj)) {
+      if (key.startsWith('$') || key === 'schema' || key === 'collection') continue;
       if (this.sensitiveKeys.has(key.toLowerCase())) {
         sanitized[key] = '[REDACTED]';
       } else if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
-        sanitized[key] = this.sanitizeObject(val);
+        sanitized[key] = this.sanitizeObject(val, depth + 1, seen);
       } else {
         sanitized[key] = val;
       }

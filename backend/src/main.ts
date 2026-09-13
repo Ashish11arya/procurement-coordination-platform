@@ -4,9 +4,12 @@ import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getModelToken } from '@nestjs/mongoose';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { Role } from './shared/enums/roles.enum';
+import { SecurityService } from './infrastructure/security/security.service';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -103,6 +106,35 @@ async function bootstrap() {
           }
         }
         logger.log('[AutoSeed] Mandi and operational counters seeded successfully.');
+      }
+    }
+
+    const userModel = app.get(getModelToken('User'), { strict: false });
+    if (userModel) {
+      const existingOperator = await userModel.findOne({ username: 'operator' });
+      if (!existingOperator) {
+        const securityService = app.get(SecurityService);
+        const operatorHash = await securityService.hashPassword('Operator@123');
+        await userModel.create({
+          username: 'operator',
+          email: 'operator@sanwer.gov.in',
+          name: 'Sanwer Mandi In-Charge',
+          passwordHash: operatorHash,
+          role: Role.CENTRE_ADMIN,
+          centreId: 'CENTRE-MP-IND-01',
+          isActive: true,
+        });
+
+        const adminHash = await securityService.hashPassword('Admin@123');
+        await userModel.create({
+          username: 'admin',
+          email: 'admin@gov.in',
+          name: 'Central Control Officer',
+          passwordHash: adminHash,
+          role: Role.GOVERNMENT_ADMIN,
+          isActive: true,
+        });
+        logger.log('[AutoSeed] Default admin and operator users created.');
       }
     }
   } catch (err: any) {

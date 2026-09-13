@@ -250,21 +250,36 @@
         </div>
       </div>
 
-      <!-- Live Interactive Simulation Control Panel (Section 42 Demo) -->
+      <!-- Live Interactive Simulation Control Panel (Section 42 Real Engine Runner) -->
       <div class="simulation-banner">
         <div class="sim-info">
-          <h4>🧪 Interactive Mandi Stress & Adaptation Simulator (Section 42)</h4>
-          <p>Test real-world edge cases in real-time. See how the platform recalculates ETAs, protects physical yard limits, and reroutes downstream bookings.</p>
+          <h4>🧪 Section 42 Real Backend Engine Demo Controller</h4>
+          <p>Each button below executes actual REST API calls against the live running NestJS backend and writes to MongoDB. Events flow dynamically back to the UI over real WebSocket channels.</p>
         </div>
-        <div class="sim-buttons">
-          <button id="btn-toggle-counter" class="btn btn-danger" onclick="toggleCounterBreakdown()">
-            ⚠️ Simulate Counter 2 Breakdown (Weighbridge 2 Offline)
+        <div class="sim-buttons" style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <button class="btn btn-outline btn-sm" onclick="handleResetDemo()">
+            ↺ Reset & Seed Mandi
           </button>
-          <button id="btn-trigger-cancel" class="btn btn-warning" onclick="triggerFarmerCancellation()">
-            🔄 Simulate Cancellation (Free 40Q Slot 1)
+          <button class="btn btn-primary btn-sm" onclick="handleDemoStep('1')">
+            Step 1: Check-in F1
           </button>
-          <button class="btn btn-outline" onclick="resetDemoState()">
-            ↺ Reset Simulation
+          <button class="btn btn-primary btn-sm" onclick="handleDemoStep('2')">
+            Step 2: F2 Late (+35m)
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="handleDemoStep('3')">
+            Step 3: F3 Processed
+          </button>
+          <button class="btn btn-warning btn-sm" onclick="handleDemoStep('4')">
+            Step 4: F4 Cancel & Adapt
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="handleDemoStep('5')">
+            Step 5: F5 No-Show
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="handleDemoStep('6')">
+            Step 6: Counter 2 Breakdown
+          </button>
+          <button class="btn btn-success btn-sm" onclick="handleRunFullDemoScenario()">
+            ⚡ Run Full Scenario
           </button>
         </div>
       </div>
@@ -274,7 +289,7 @@
         <span class="alert-icon">⚠️</span>
         <div class="alert-content">
           <strong>BOTTLENECK DETECTED: Weighbridge 2 Under Maintenance!</strong>
-          <p>Weighing throughput reduced from 55 Q/hr to 30 Q/hr. Dynamic adaptation has derated downstream arrival windows and added +12 min buffers.</p>
+          <p>Weighing throughput reduced from 55 Q/hr to 30 Q/hr. Dynamic adaptation has derated downstream arrival windows and logged audit justification.</p>
         </div>
       </div>
 
@@ -515,6 +530,21 @@
     </div>
   </div>
 
+  <!-- Live Network & WebSocket Telemetry Stream (Section 14 & 34) -->
+  <aside class="main-container" style="padding-top: 0; padding-bottom: 24px;">
+    <div class="card" style="border-left: 4px solid var(--gov-navy); background: #f8fafc;">
+      <div class="card-header" style="padding: 12px 16px;">
+        <h4 style="margin: 0; font-size: 0.95rem; color: var(--gov-navy); display: flex; align-items: center; gap: 8px;">
+          <span>📡 Live REST API & WebSocket Event Wire Telemetry</span>
+        </h4>
+        <span class="badge badge-success" style="font-size: 0.75rem;">Live Real-Time Stream</span>
+      </div>
+      <div id="telemetry-console-body" style="max-height: 140px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; padding: 10px 16px; background: #0f172a; color: #e2e8f0; border-radius: 6px;">
+        <div style="color: #94a3b8;">[System] Listening for incoming REST API responses and WebSocket push events from /realtime...</div>
+      </div>
+    </div>
+  </aside>
+
   <!-- Footer -->
   <footer class="gov-footer">
     <div class="gov-footer-inner">
@@ -527,6 +557,10 @@
     </div>
   </footer>
 
+  <!-- Realtime & API Client Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="api.js"></script>
+  <script src="realtime.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
