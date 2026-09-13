@@ -7,6 +7,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 
 import { RedisModule } from '../../src/infrastructure/redis/redis.module';
+import { RedisService } from '../../src/infrastructure/redis/redis.service';
 import { SecurityModule } from '../../src/infrastructure/security/security.module';
 import { AuditModule } from '../../src/modules/audit/audit.module';
 import { IntegrationsModule } from '../../src/modules/integrations/integrations.module';
@@ -34,6 +35,7 @@ import { JwtService } from '@nestjs/jwt';
 describe('Phase 2: Farmer + Centre + Booking + Capacity (Integration Tests)', () => {
   let app: INestApplication;
   let jwtService: JwtService;
+  let redisService: RedisService;
 
   // Mock Models
   let userModel: any;
@@ -153,6 +155,7 @@ describe('Phase 2: Farmer + Centre + Booking + Capacity (Integration Tests)', ()
     await app.init();
 
     jwtService = moduleFixture.get<JwtService>(JwtService);
+    redisService = moduleFixture.get<RedisService>(RedisService);
 
     // Generate authenticated JWT tokens
     farmerJwtToken = jwtService.sign({
@@ -578,6 +581,93 @@ describe('Phase 2: Farmer + Centre + Booking + Capacity (Integration Tests)', ()
       expect(res.body.success).toBe(true);
       expect(res.body.booking.status).toBe(BookingStatus.CANCELLED);
       expect(res.body.booking.cancellationReason).toBe('Severe rain and road closure');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 6. Redis Failure Resilience & Non-Realtime REST Fallback (Sections 15 & 16)
+  // --------------------------------------------------------------------------
+  describe('6. Redis Failure Resilience & Non-Realtime REST Fallback', () => {
+    it('should successfully create booking, assign token, persist to MongoDB, and allow REST polling when Redis is completely unavailable', async () => {
+      // Simulate complete catastrophic Redis outage: all Redis methods reject with connection errors
+      const redisGetSpy = jest.spyOn(redisService, 'get').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+      const redisSetSpy = jest.spyOn(redisService, 'set').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+      const redisDelSpy = jest.spyOn(redisService, 'del').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+      const redisPubSpy = jest.spyOn(redisService, 'publish').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+      const redisSubSpy = jest.spyOn(redisService, 'subscribe').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+      const redisLockSpy = jest.spyOn(redisService, 'acquireLock').mockRejectedValue(new Error('ECONNREFUSED: Connection to Redis failed'));
+
+      // 1. Farmer initiates booking via REST HTTP API while Redis is completely down
+      const offlineBookingPayload = {
+        centreId: 'CENTRE-MP-IND-01',
+        commodityCode: 'WHEAT',
+        quantityQuintals: 35,
+        bookingDate: '2026-09-30',
+        preferredSlotIndex: 0,
+        vehicles: [
+          {
+            vehicleNumber: 'MP-09-OFFLINE-1',
+            vehicleType: VehicleType.TRACTOR_TROLLEY,
+            allocatedQuantityQuintals: 35,
+            driverName: 'Suresh Patel',
+            driverMobile: '9876543210',
+          },
+        ],
+      };
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/bookings')
+        .set('Authorization', `Bearer ${farmerJwtToken}`)
+        .send(offlineBookingPayload)
+        .expect(201);
+
+      // 2. Booking succeeds and farmer receives their token and arrival window
+      expect(res.body.success).toBe(true);
+      expect(res.body.booking).toBeDefined();
+      expect(res.body.booking.tokenNumber).toMatch(/^T-\d{3}$/);
+      expect(res.body.booking.quantityQuintals).toBe(35);
+      expect(res.body.booking.status).toBe(BookingStatus.BOOKED);
+      expect(res.body.booking.arrivalWindow).toBeDefined();
+      expect(res.body.booking.arrivalWindow.startTime).toBe('09:00');
+
+      const offlineBookingId = res.body.booking.bookingId;
+
+      // 3. Durable MongoDB verification (Section 15: DB remains authoritative)
+      const durableBooking = await bookingModel.findOne({ bookingId: offlineBookingId }).exec();
+      expect(durableBooking).toBeDefined();
+      expect(durableBooking.farmerId).toBe('FARMER-MP-IND-001');
+      expect(durableBooking.tokenNumber).toBe(res.body.booking.tokenNumber);
+
+      const durableWindow = await windowModel
+        .findOne({
+          centreId: 'CENTRE-MP-IND-01',
+          date: '2026-09-30',
+          slotIndex: 0,
+        })
+        .exec();
+      expect(durableWindow).toBeDefined();
+      expect(durableWindow.bookedQuantityQuintals).toBe(35);
+
+      // 4. Non-realtime fallback: Farmer polls booking status via REST HTTP API (GET /api/v1/bookings)
+      const pollRes = await request(app.getHttpServer())
+        .get('/api/v1/bookings')
+        .set('Authorization', `Bearer ${farmerJwtToken}`)
+        .expect(200);
+
+      expect(pollRes.body.success).toBe(true);
+      const foundInList = pollRes.body.bookings.find((b: any) => b.bookingId === offlineBookingId);
+      expect(foundInList).toBeDefined();
+      expect(foundInList.tokenNumber).toBe(res.body.booking.tokenNumber);
+      expect(foundInList.status).toBe(BookingStatus.BOOKED);
+      expect(foundInList.arrivalWindow.startTime).toBe('09:00');
+
+      // Restore spies
+      redisGetSpy.mockRestore();
+      redisSetSpy.mockRestore();
+      redisDelSpy.mockRestore();
+      redisPubSpy.mockRestore();
+      redisSubSpy.mockRestore();
+      redisLockSpy.mockRestore();
     });
   });
 });
