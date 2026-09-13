@@ -14,6 +14,7 @@
     "test:unit": "jest tests/unit --runInBand",
     "test:integration": "jest tests/integration --runInBand",
     "test:load": "ts-node tests/load/load-test-benchmark.ts",
+    "test:load:http": "ts-node tests/load/http-load-test.ts",
     "demo:sih": "ts-node tests/integration/run-sih-demo-scenario.ts"
   },
   "dependencies": {
