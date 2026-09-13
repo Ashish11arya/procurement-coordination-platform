@@ -1,0 +1,36 @@
+[debug] [2026-09-13T08:02:50.184Z] ----------------------------------------------------------------------
+[debug] [2026-09-13T08:02:50.188Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ashis\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\bin\firebase.js deploy --only auth --project astra-ashish-1003
+[debug] [2026-09-13T08:02:50.188Z] CLI Version:   15.30.0
+[debug] [2026-09-13T08:02:50.189Z] Platform:      win32
+[debug] [2026-09-13T08:02:50.189Z] Node Version:  v24.2.0
+[debug] [2026-09-13T08:02:50.189Z] Detected Agent: antigravity
+[debug] [2026-09-13T08:02:50.189Z] Time:          Sun Sep 13 2026 13:32:50 GMT+0530 (India Standard Time)
+[debug] [2026-09-13T08:02:50.189Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-09-13T08:02:53.271Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-09-13T08:02:53.272Z] > authorizing via signed-in user (ashisharya1003@gmail.com)
+[debug] [2026-09-13T08:02:53.272Z] [iam] checking project astra-ashish-1003 for permissions ["firebase.projects.get","firebase.projects.update","firebaseauth.configs.update"]
+[debug] [2026-09-13T08:02:53.294Z] Checked if tokens are valid: true, expires at: 1789288354070
+[debug] [2026-09-13T08:02:53.294Z] Checked if tokens are valid: true, expires at: 1789288354070
+[debug] [2026-09-13T08:02:53.295Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions [none]
+[debug] [2026-09-13T08:02:53.296Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions  x-goog-user-project=astra-ashish-1003
+[debug] [2026-09-13T08:02:53.296Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions {"permissions":["firebase.projects.get","firebase.projects.update","firebaseauth.configs.update"]}
+[debug] [2026-09-13T08:02:55.112Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions 403
+[debug] [2026-09-13T08:02:55.113Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions {"error":{"code":403,"message":"Cloud Resource Manager API has not been used in project astra-ashish-1003 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=astra-ashish-1003 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"containerInfo":"astra-ashish-1003","activationUrl":"https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=astra-ashish-1003","serviceTitle":"Cloud Resource Manager API","consumer":"projects/astra-ashish-1003","service":"cloudresourcemanager.googleapis.com"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Cloud Resource Manager API has not been used in project astra-ashish-1003 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=astra-ashish-1003 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=astra-ashish-1003"}]}]}}
+[debug] [2026-09-13T08:02:55.114Z] [iam] error while checking permissions, command may fail: Request to https://cloudresourcemanager.googleapis.com/v1/projects/astra-ashish-1003:testIamPermissions had HTTP Error: 403, Cloud Resource Manager API has not been used in project astra-ashish-1003 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=astra-ashish-1003 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+[info] 
+[info] === Deploying to 'astra-ashish-1003'...
+[info] 
+[info] i  deploying auth 
+[debug] [2026-09-13T08:02:55.118Z] Checked if tokens are valid: true, expires at: 1789288354070
+[debug] [2026-09-13T08:02:55.118Z] Checked if tokens are valid: true, expires at: 1789288354070
+[debug] [2026-09-13T08:02:55.119Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/astra-ashish-1003/webApps pageSize=100
+[debug] [2026-09-13T08:02:55.646Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/astra-ashish-1003/webApps 404
+[debug] [2026-09-13T08:02:55.646Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/astra-ashish-1003/webApps {"error":{"code":404,"message":"Firebase project 518598268580 not found.","status":"NOT_FOUND"}}
+[debug] [2026-09-13T08:02:55.647Z] Request to https://firebase.googleapis.com/v1beta1/projects/astra-ashish-1003/webApps?pageSize=100 had HTTP Error: 404, Firebase project 518598268580 not found.
+[debug] [2026-09-13T08:02:55.906Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/astra-ashish-1003/webApps?pageSize=100 had HTTP Error: 404, Firebase project 518598268580 not found.
+    at responseToError (C:\Users\ashis\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\responseToError.js:53:12)
+    at RetryOperation._fn (C:\Users\ashis\AppData\Local\npm-cache\_npx\ba4f1959e38407b5\node_modules\firebase-tools\lib\apiv2.js:415:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[error] 
+[error] Error: Failed to list Firebase WEB apps. See firebase-debug.log for more info.
