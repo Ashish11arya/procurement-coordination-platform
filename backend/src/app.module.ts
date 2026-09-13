@@ -15,6 +15,8 @@ import { CentresModule } from './modules/centres/centres.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { OperationsModule } from './modules/operations/operations.module';
+import { CommandCentreModule } from './modules/command-centre/command-centre.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
@@ -34,6 +36,8 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     BookingsModule,
     SchedulingModule,
     QueueModule,
+    OperationsModule,
+    CommandCentreModule,
   ],
   providers: [
     {

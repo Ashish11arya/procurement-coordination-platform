@@ -81,8 +81,14 @@ export class QueueStateMachine {
         return role === Role.FARMER || role === Role.CHECKIN_OPERATOR;
 
       case QueueStatus.CHECKED_IN:
-      case QueueStatus.WAITING:
         return role === Role.CHECKIN_OPERATOR;
+
+      case QueueStatus.WAITING:
+        return (
+          role === Role.CHECKIN_OPERATOR ||
+          role === Role.WEIGHING_OPERATOR ||
+          role === Role.QUALITY_OPERATOR
+        );
 
       case QueueStatus.PROCESSING:
         return (

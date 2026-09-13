@@ -28,6 +28,9 @@ export class ArrivalWindow {
 
   @Prop({ required: true, min: 0, default: 0 })
   bookingCount: number;
+
+  @Prop({ default: false })
+  hasCapacityAlert?: boolean;
 }
 
 export const ArrivalWindowSchema = SchemaFactory.createForClass(ArrivalWindow);

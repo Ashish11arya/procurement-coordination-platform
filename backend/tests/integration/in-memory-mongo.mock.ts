@@ -39,6 +39,9 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
     }
 
     static async create(data: any) {
+      if (Array.isArray(data)) {
+        return Promise.all(data.map((item) => MockModel.create(item)));
+      }
       const doc = new MockModel(data);
       await doc.save();
       return doc;
