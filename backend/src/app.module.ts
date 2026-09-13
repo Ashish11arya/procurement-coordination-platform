@@ -1,6 +1,6 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import * as crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 
@@ -21,7 +21,11 @@ import { EventsModule } from './infrastructure/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { PredictionsModule } from './modules/predictions/predictions.module';
+
+import { CsrfGuard } from './infrastructure/security/csrf.guard';
+import { RateLimitGuard } from './infrastructure/security/rate-limit.guard';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
+import { MongoSanitizeMiddleware } from './infrastructure/security/mongo-sanitize.middleware';
 
 @Module({
   imports: [
@@ -52,11 +56,19 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,
     },
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    // Request correlation ID middleware (Section 19 & 26)
+    // 1. Request correlation ID middleware (Section 19 & 26)
     consumer
       .apply((req: Request, res: Response, next: NextFunction) => {
         const correlationId = (req.headers['x-request-id'] as string) || crypto.randomUUID();
@@ -65,5 +77,8 @@ export class AppModule implements NestModule {
         next();
       })
       .forRoutes('*');
+
+    // 2. NoSQL injection sanitizer middleware (Section 19)
+    consumer.apply(MongoSanitizeMiddleware).forRoutes('*');
   }
 }

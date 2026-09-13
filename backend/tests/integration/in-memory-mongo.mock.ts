@@ -64,15 +64,20 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
 
     static findById(id: any) {
       const idStr = id?.toString();
+      const fn = async () => {
+        const found = store.find((item) => item._id && item._id.toString() === idStr);
+        if (!found) return null;
+        return new MockModel(found);
+      };
       return {
         select: function () {
           return this;
         },
-        exec: async function () {
-          const found = store.find((item) => item._id.toString() === idStr);
-          if (!found) return null;
-          return new MockModel(found);
+        populate: function () {
+          return this;
         },
+        exec: fn,
+        then: (resolve: any, reject: any) => fn().then(resolve, reject),
       };
     }
 

@@ -33,6 +33,7 @@ import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FarmersService } from '../farmers/farmers.service';
 import { CentresService } from '../centres/centres.service';
 import { IdempotencyService } from '../../infrastructure/security/idempotency.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
   GovernmentDataProvider,
   GOVERNMENT_DATA_PROVIDER,
@@ -63,6 +64,7 @@ export class BookingsService {
     @Inject(GOVERNMENT_DATA_PROVIDER)
     private readonly govProvider: GovernmentDataProvider,
     @Optional() private readonly eventBusService?: EventBusService,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
 
   /**
@@ -140,35 +142,52 @@ export class BookingsService {
       );
     }
 
-    // 6. Capacity Tracking & Overbooking Prevention (Section 6 & 15)
-    const existingBookings = await this.bookingModel
-      .find({
-        centreId: dto.centreId,
-        bookingDate: dto.bookingDate,
-        status: { $in: ACTIVE_BOOKING_STATUSES },
-      })
-      .exec();
-
-    const currentDailyBooked = existingBookings.reduce(
-      (sum, b) => sum + b.quantityQuintals,
-      0,
-    );
-
-    const govCapacity = await this.govProvider.getCentreCapacity(
-      dto.centreId,
-      dto.bookingDate,
-    );
-    const dailySanctionedCapacity = Math.min(
-      centre.dailyCapacityQuintals,
-      govCapacity.sanctionedDailyCapacityQuintals,
-    );
-
-    if (currentDailyBooked + dto.quantityQuintals > dailySanctionedCapacity) {
-      const remainingAvailable = Math.max(0, dailySanctionedCapacity - currentDailyBooked);
-      throw new ConflictException(
-        `Procurement centre daily capacity exceeded for date ${dto.bookingDate}. Sanctioned: ${dailySanctionedCapacity}Q, Already booked: ${currentDailyBooked}Q, Remaining: ${remainingAvailable}Q, Requested: ${dto.quantityQuintals}Q.`,
-      );
+    // 6. Capacity Tracking & Overbooking Prevention (Section 6, 15, 16) with Distributed Lock
+    const lockKey = `booking:capacity:${dto.centreId}:${dto.bookingDate}`;
+    let lockToken: string | null = null;
+    if (this.redisService) {
+      try {
+        for (let attempt = 0; attempt < 25; attempt++) {
+          lockToken = await this.redisService.acquireLock(lockKey, 5000);
+          if (lockToken) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `Redis lock acquisition bypassed (${err.message}). Proceeding with durable MongoDB transaction.`,
+        );
+      }
     }
+
+    try {
+      const existingBookings = await this.bookingModel
+        .find({
+          centreId: dto.centreId,
+          bookingDate: dto.bookingDate,
+          status: { $in: ACTIVE_BOOKING_STATUSES },
+        })
+        .exec();
+
+      const currentDailyBooked = existingBookings.reduce(
+        (sum, b) => sum + b.quantityQuintals,
+        0,
+      );
+
+      const govCapacity = await this.govProvider.getCentreCapacity(
+        dto.centreId,
+        dto.bookingDate,
+      );
+      const dailySanctionedCapacity = Math.min(
+        centre.dailyCapacityQuintals,
+        govCapacity.sanctionedDailyCapacityQuintals,
+      );
+
+      if (currentDailyBooked + dto.quantityQuintals > dailySanctionedCapacity) {
+        const remainingAvailable = Math.max(0, dailySanctionedCapacity - currentDailyBooked);
+        throw new ConflictException(
+          `Procurement centre daily capacity exceeded for date ${dto.bookingDate}. Sanctioned: ${dailySanctionedCapacity}Q, Already booked: ${currentDailyBooked}Q, Remaining: ${remainingAvailable}Q, Requested: ${dto.quantityQuintals}Q.`,
+        );
+      }
 
     // 7. Arrival Window Slot Allocation & Atomic Reservation
     const slotIndex = dto.preferredSlotIndex ?? 0;
@@ -320,6 +339,15 @@ export class BookingsService {
     }
 
     return resultPayload;
+    } finally {
+      if (lockToken && this.redisService) {
+        try {
+          await this.redisService.releaseLock(lockKey, lockToken);
+        } catch (err: any) {
+          this.logger.warn(`Redis releaseLock bypassed (${err.message}).`);
+        }
+      }
+    }
   }
 
   /**
