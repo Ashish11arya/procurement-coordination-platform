@@ -28,6 +28,10 @@
         </div>
       </div>
       <div class="gov-controls">
+        <div class="persona-indicator" id="persona-badge" title="Active Enterprise Identity">
+          <span class="persona-icon">👤</span>
+          <span id="txt-active-persona">Farmer: Ramesh Verma</span>
+        </div>
         <div class="live-indicator" id="live-indicator">
           <span class="pulse-dot"></span>
           <span id="txt-conn-status">Live Connected</span>
@@ -111,6 +115,10 @@
         <div class="barcode-card">
           <div class="barcode-lines"></div>
           <span class="barcode-text">SCAN AT GATE 1 ENTRANCE</span>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap;">
+          <button class="btn btn-outline btn-sm" onclick="handleRefreshFarmerBooking()">🔄 Refresh Status</button>
+          <button class="btn btn-danger btn-sm" id="btn-farmer-cancel" onclick="handleFarmerCancelActiveBooking()">❌ Cancel Booking (रद्द करें)</button>
         </div>
       </div>
 
@@ -330,11 +338,12 @@
             <thead>
               <tr>
                 <th>Token</th>
-                <th>Farmer Name</th>
+                <th>Farmer ID / Name</th>
                 <th>Commodity & Qty</th>
                 <th>Arrival Window</th>
                 <th>Yard Status</th>
-                <th>Stage Details</th>
+                <th>Physical Stage</th>
+                <th>Ground Operator Actions (Live Backend)</th>
               </tr>
             </thead>
             <tbody id="roster-table-body">
@@ -407,7 +416,7 @@
                 <th>Bottleneck State</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="cmd-mandis-tbody">
               <tr>
                 <td><strong>Sanwer Krishi Upaj Mandi</strong></td>
                 <td>Indore / Sanwer</td>

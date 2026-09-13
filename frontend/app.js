@@ -1,6 +1,6 @@
 /**
- * National Procurement Coordination Platform - Main Application Logic
- * Completely wired to real backend REST endpoints and live WebSocket events.
+ * National Procurement Coordination Platform - Main Application Controller
+ * Fully integrated multi-persona client wired to NestJS REST APIs and Socket.IO WebSockets.
  */
 
 // ============================================================================
@@ -82,13 +82,27 @@ const i18n = {
 };
 
 let currentLang = 'en';
+let activeFarmerBooking = null;
 let liveCounters = [];
 let liveRoster = [];
 
 // ============================================================================
-// 2. Navigation & Language Switchers
+// 2. Navigation & Multi-Persona Identity Sync
 // ============================================================================
-function switchView(viewId) {
+function updatePersonaBadge(roleKey) {
+  const badge = document.getElementById('txt-active-persona');
+  if (!badge) return;
+
+  if (roleKey === 'farmer') {
+    badge.textContent = 'Farmer: Ramesh Verma (+91-9876543210)';
+  } else if (roleKey === 'operator') {
+    badge.textContent = 'Mandi Operator: Sanwer In-Charge (CENTRE_ADMIN)';
+  } else if (roleKey === 'admin') {
+    badge.textContent = 'State Admin: Central Control Officer (GOV_ADMIN)';
+  }
+}
+
+async function switchView(viewId) {
   document.querySelectorAll('.view-panel').forEach((p) => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach((t) => t.classList.remove('active'));
 
@@ -97,6 +111,21 @@ function switchView(viewId) {
 
   if (targetPanel) targetPanel.classList.add('active');
   if (targetTab) targetTab.classList.add('active');
+
+  // Multi-Persona Role Switch
+  if (viewId === 'farmer') {
+    window.api.setActivePersona('farmer');
+    updatePersonaBadge('farmer');
+    await loadFarmerPortalData();
+  } else if (viewId === 'centre') {
+    window.api.setActivePersona('operator');
+    updatePersonaBadge('operator');
+    await loadCentreOperationsData();
+  } else if (viewId === 'command') {
+    window.api.setActivePersona('admin');
+    updatePersonaBadge('admin');
+    await loadCommandCentreData();
+  }
 }
 
 function switchLanguage(lang) {
@@ -146,64 +175,77 @@ function switchLanguage(lang) {
 }
 
 // ============================================================================
-// 3. Render Functions (Backed by Real MongoDB Data)
+// 3. Farmer Portal Management (Section 28)
 // ============================================================================
-function renderCountersTable(counters) {
-  const tbody = document.getElementById('counters-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-
-  let activeCount = 0;
-  counters.forEach((c) => {
-    if (c.status === 'ACTIVE') activeCount++;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${c.counterId || c.id}</strong></td>
-      <td>${c.name || `Counter ${c.counterNumber || 1}`}</td>
-      <td><span class="badge badge-primary">${c.stage}</span></td>
-      <td>${c.capacityPerHourQuintals || c.cap || 30} Q/hr</td>
-      <td>${c.currentQueueLength || 0} Vehicles</td>
-      <td>
-        <span class="status-pill ${c.status === 'ACTIVE' ? 'status-active' : 'status-maintenance'}">
-          ${c.status}
-        </span>
-      </td>
-      <td>
-        <button class="btn btn-sm ${c.status === 'ACTIVE' ? 'btn-danger' : 'btn-primary'}" onclick="handleSingleCounterToggle('${c.counterId || c.id}')">
-          ${c.status === 'ACTIVE' ? 'Mark Fault' : 'Restore'}
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  const countBadge = document.getElementById('badge-counter-count');
-  if (countBadge) countBadge.textContent = `${activeCount} Counters Active`;
+async function loadFarmerPortalData() {
+  try {
+    const res = await window.api.getFarmerBookings();
+    if (res && res.success && res.bookings && res.bookings.length > 0) {
+      activeFarmerBooking = res.bookings[0];
+      renderFarmerBooking(activeFarmerBooking);
+    }
+  } catch (err) {
+    console.warn('[FarmerPortal] Could not fetch farmer bookings:', err.message);
+  }
 }
 
-function renderRosterTable(roster) {
-  const tbody = document.getElementById('roster-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+function renderFarmerBooking(bk) {
+  if (!bk) return;
 
-  roster.forEach((r) => {
-    const tr = document.createElement('tr');
-    let pillClass = 'status-waiting';
-    const st = r.status || '';
-    if (st === 'IN_YARD' || st === 'CHECKED_IN' || st === 'IN_PROGRESS' || st === 'PROCESSING') pillClass = 'status-active';
-    if (st === 'COMPLETED') pillClass = 'status-completed';
-    if (st === 'CANCELLED' || st === 'NO_SHOW' || st === 'REJECTED') pillClass = 'status-maintenance';
+  const tokenEl = document.getElementById('farmer-token-num');
+  const subEl = document.getElementById('txt-token-sub');
+  const statusEl = document.getElementById('val-status');
+  const windowEl = document.getElementById('val-window');
+  const commodityEl = document.getElementById('val-commodity');
+  const mspEl = document.getElementById('val-msp');
+  const cancelBtn = document.getElementById('btn-farmer-cancel');
 
-    tr.innerHTML = `
-      <td><strong style="font-size: 1.05rem; color: var(--gov-navy);">${r.token}</strong></td>
-      <td><strong>${r.farmerName || r.farmerId || 'Farmer'}</strong></td>
-      <td>${r.qty}</td>
-      <td>${r.window}</td>
-      <td><span class="status-pill ${pillClass}">${r.status}</span></td>
-      <td><small style="color: var(--text-secondary);">${r.stage || r.status}</small></td>
-    `;
-    tbody.appendChild(tr);
-  });
+  if (tokenEl) tokenEl.textContent = bk.tokenNumber || 'T-001';
+  if (subEl) subEl.textContent = `Booking ID: ${bk.bookingId}`;
+  if (windowEl && bk.arrivalWindow) {
+    windowEl.textContent = `Today, ${bk.arrivalWindow.startTime} - ${bk.arrivalWindow.endTime} (Slot ${bk.arrivalWindow.slotIndex || 1})`;
+  }
+  if (commodityEl) {
+    commodityEl.textContent = `${bk.commodityCode || 'WHEAT'} - ${bk.quantityQuintals} Quintals`;
+  }
+  if (mspEl) {
+    const rate = bk.commodityCode === 'WHEAT' ? 2275 : 5400;
+    const est = (bk.quantityQuintals * rate).toLocaleString('en-IN');
+    mspEl.textContent = `₹${est}`;
+  }
+
+  // Update Status Pill
+  if (statusEl) {
+    statusEl.textContent = bk.status;
+    let pillClass = 'status-active';
+    if (bk.status === 'COMPLETED') pillClass = 'status-completed';
+    if (bk.status === 'CANCELLED' || bk.status === 'NO_SHOW') pillClass = 'status-maintenance';
+    statusEl.className = `status-pill ${pillClass}`;
+  }
+
+  // Disable Cancel Button if already completed or cancelled
+  if (cancelBtn) {
+    if (bk.status === 'CANCELLED' || bk.status === 'COMPLETED') {
+      cancelBtn.disabled = true;
+      cancelBtn.style.opacity = '0.5';
+    } else {
+      cancelBtn.disabled = false;
+      cancelBtn.style.opacity = '1';
+    }
+  }
+
+  // Update 4-Stage Tracker based on Booking & Queue State
+  if (bk.status === 'CONFIRMED' || bk.status === 'BOOKED') {
+    updateFarmerTrackerStage(1, 'Awaiting Mandi Gate Arrival');
+  } else if (bk.status === 'CHECKED_IN') {
+    updateFarmerTrackerStage(2, 'Vehicle Admitted to Yard; In Queue for Weighbridge');
+  } else if (bk.status === 'IN_PROGRESS') {
+    updateFarmerTrackerStage(3, 'Weighment Complete; Quality Assay In Progress');
+  } else if (bk.status === 'COMPLETED') {
+    updateFarmerTrackerStage(4, 'Procurement Complete; Payment Advice Dispatched to DBT');
+  } else if (bk.status === 'CANCELLED') {
+    updateFarmerTrackerStage(1, 'Booking Cancelled');
+  }
 }
 
 function updateFarmerTrackerStage(stageNum, desc) {
@@ -224,10 +266,30 @@ function updateFarmerTrackerStage(stageNum, desc) {
   }
 }
 
+async function handleFarmerCancelActiveBooking() {
+  const bookingId = activeFarmerBooking?.bookingId || 'BK-DEMO-001';
+  const confirmed = confirm(`Are you sure you want to cancel booking ${bookingId}? Dynamic Adaptation Engine willDerate and pull waiting farmers forward.`);
+  if (!confirmed) return;
+
+  try {
+    const res = await window.api.cancelBooking(bookingId, 'Farmer requested cancellation via Farmer Portal');
+    alert(`Booking ${bookingId} successfully cancelled.\n${res.message || ''}`);
+    await loadFarmerPortalData();
+    await loadCentreOperationsData();
+  } catch (err) {
+    alert(`Cancellation failed: ${err.message}`);
+  }
+}
+
+async function handleRefreshFarmerBooking() {
+  await loadFarmerPortalData();
+  alert('Farmer booking status refreshed from backend database.');
+}
+
 // ============================================================================
-// 4. Real Backend API Actions
+// 4. Mandi Operations & Ground Operator Actions (Section 29)
 // ============================================================================
-async function loadLiveBackendData() {
+async function loadCentreOperationsData() {
   try {
     const data = await window.api.getLiveDemoRoster();
     if (data && data.success) {
@@ -236,18 +298,236 @@ async function loadLiveBackendData() {
       renderCountersTable(liveCounters);
       renderRosterTable(liveRoster);
     }
+
+    const dash = await window.api.getCentreDashboard('CENTRE-MP-IND-01');
+    if (dash) {
+      renderMandiGauges(dash);
+    }
   } catch (err) {
-    console.warn('[App] Could not load live roster from backend:', err.message);
+    console.warn('[Operations] Could not load live centre data:', err.message);
   }
 }
 
+function renderMandiGauges(dash) {
+  if (!dash) return;
+
+  const bookedPct = dash.capacityUtilizationPercentage || 0;
+  const barDaily = document.getElementById('bar-daily');
+  const valDaily = document.getElementById('val-daily-pct');
+  if (barDaily) barDaily.style.width = `${Math.min(bookedPct, 100)}%`;
+  if (valDaily) valDaily.textContent = `${bookedPct}% Booked`;
+
+  const throughputVal = document.getElementById('val-throughput');
+  const bottleneckVal = document.getElementById('val-bottleneck');
+  const bottleneckStatus = document.getElementById('val-bottleneck-status');
+  const alertBanner = document.getElementById('capacity-alert-banner');
+
+  if (dash.bottlenecks?.hasBottleneck) {
+    if (throughputVal) throughputVal.textContent = '30 Q / hr';
+    if (bottleneckVal) bottleneckVal.textContent = dash.bottlenecks.bottleneckStage;
+    if (bottleneckStatus) {
+      bottleneckStatus.textContent = '⚠️ Bottleneck Throttled';
+      bottleneckStatus.className = 'text-amber';
+    }
+    if (alertBanner) alertBanner.style.display = 'flex';
+  } else {
+    if (throughputVal) throughputVal.textContent = '55 Q / hr';
+    if (bottleneckVal) bottleneckVal.textContent = 'WEIGHING';
+    if (bottleneckStatus) {
+      bottleneckStatus.textContent = 'Optimal Flow';
+      bottleneckStatus.className = 'text-success';
+    }
+  }
+}
+
+function renderCountersTable(counters) {
+  const tbody = document.getElementById('counters-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let activeCount = 0;
+  counters.forEach((c) => {
+    if (c.status === 'ACTIVE') activeCount++;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${c.counterId || c.id}</strong></td>
+      <td>${c.name || `Counter ${c.counterNumber || 1}`}</td>
+      <td><span class="badge badge-primary">${c.stage}</span></td>
+      <td>${c.capacityPerHourQuintals || 30} Q/hr</td>
+      <td>${c.currentQueueLength || 0} Vehicles</td>
+      <td>
+        <span class="status-pill ${c.status === 'ACTIVE' ? 'status-active' : 'status-maintenance'}">
+          ${c.status}
+        </span>
+      </td>
+      <td>
+        <button class="btn btn-xs ${c.status === 'ACTIVE' ? 'btn-danger' : 'btn-primary'}" onclick="handleSingleCounterToggle('${c.counterId || c.id}')">
+          ${c.status === 'ACTIVE' ? 'Mark Fault' : 'Restore'}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const countBadge = document.getElementById('badge-counter-count');
+  if (countBadge) countBadge.textContent = `${activeCount} / ${counters.length} Counters Active`;
+}
+
+function renderRosterTable(roster) {
+  const tbody = document.getElementById('roster-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  roster.forEach((r) => {
+    const tr = document.createElement('tr');
+    const st = r.status || '';
+    let pillClass = 'status-waiting';
+    if (st === 'IN_YARD' || st === 'CHECKED_IN' || st === 'IN_PROGRESS' || st === 'PROCESSING') pillClass = 'status-active';
+    if (st === 'COMPLETED') pillClass = 'status-completed';
+    if (st === 'CANCELLED' || st === 'NO_SHOW' || st === 'REJECTED') pillClass = 'status-maintenance';
+
+    // Contextual Ground Action Buttons per Stage
+    let actionButtons = '';
+    if (st === 'CONFIRMED' || st === 'BOOKED') {
+      actionButtons = `
+        <button class="btn btn-xs btn-primary" onclick="handleGroundCheckIn('${r.bookingId}', '${r.token}', 'MP-09-AB-1234')">
+          📥 Gate Check-In
+        </button>
+      `;
+    } else if (st === 'CHECKED_IN' || st === 'ARRIVED') {
+      actionButtons = `
+        <button class="btn btn-xs btn-primary" onclick="handleGroundWeigh('${r.bookingId}', 'MP-09-AB-1234', 42.5, 12.5)">
+          ⚖️ Weigh Vehicle
+        </button>
+      `;
+    } else if (st === 'IN_PROGRESS' || st === 'WEIGHING_COMPLETED') {
+      actionButtons = `
+        <button class="btn btn-xs btn-success" onclick="handleGroundQuality('${r.bookingId}', 'GRADE_A', 11.2)">
+          🔬 Quality Assay
+        </button>
+      `;
+    } else if (st === 'QUALITY_COMPLETED') {
+      actionButtons = `
+        <button class="btn btn-xs btn-warning" onclick="handleGroundProcurement('${r.bookingId}', 30.0, 2275)">
+          💰 Procure & DBT
+        </button>
+      `;
+    } else if (st === 'COMPLETED') {
+      actionButtons = `<span class="badge badge-success">✓ Procured & DBT</span>`;
+    } else {
+      actionButtons = `<small class="text-muted">Closed (${st})</small>`;
+    }
+
+    if (st !== 'COMPLETED' && st !== 'CANCELLED' && st !== 'NO_SHOW') {
+      actionButtons += `
+        <button class="btn btn-xs btn-ghost-action" style="color: var(--gov-red);" onclick="handleGroundCancel('${r.bookingId}')" title="Cancel Booking">
+          ❌
+        </button>
+      `;
+    }
+
+    tr.innerHTML = `
+      <td><strong style="font-size: 1.05rem; color: var(--gov-navy);">${r.token}</strong></td>
+      <td><strong>${r.farmerName || r.farmerId || 'Farmer'}</strong></td>
+      <td>${r.qty}</td>
+      <td>${r.window}</td>
+      <td><span class="status-pill ${pillClass}">${r.status}</span></td>
+      <td><small style="color: var(--text-secondary);">${r.stage || r.status}</small></td>
+      <td>
+        <div class="btn-group-cell">${actionButtons}</div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Ground Action Button Handlers (Real Backend Operations Endpoints)
+// ----------------------------------------------------------------------------
+async function handleGroundCheckIn(bookingId, tokenNumber, vehicleNumber) {
+  try {
+    const res = await window.api.checkInVehicle({
+      bookingId,
+      tokenNumber,
+      vehicleNumber,
+      notes: 'Admitted via Gate 1 Automated Boom Barrier',
+    });
+    alert(`Gate Check-in Success! Booking: ${bookingId}, Queue: ${res.queueState}`);
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+  } catch (err) {
+    alert(`Check-in failed: ${err.message}`);
+  }
+}
+
+async function handleGroundWeigh(bookingId, vehicleNumber, gross, tare) {
+  try {
+    const res = await window.api.executeFullWeighment(bookingId, vehicleNumber, gross, tare);
+    alert(`Weighment Recorded! Net Weight: ${res.netWeightQuintals} Q. Weigh Slip: ${res.weighmentSlipNumber}`);
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+  } catch (err) {
+    alert(`Weighment failed: ${err.message}`);
+  }
+}
+
+async function handleGroundQuality(bookingId, grade, moisture) {
+  try {
+    const res = await window.api.executeQualityAssay(bookingId, grade, moisture);
+    alert(`Quality Verified! Grade: ${res.assignedGrade}, Moisture: ${moisture}%, Verdict: ${res.verdict}`);
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+  } catch (err) {
+    alert(`Quality assay failed: ${err.message}`);
+  }
+}
+
+async function handleGroundProcurement(bookingId, finalQty, mspRate) {
+  try {
+    const res = await window.api.executeProcurementHandoff(bookingId, finalQty, mspRate);
+    alert(`Procurement Finalized! Advice Dispatched. Total Payout: ₹${res.record?.totalPayoutAmountInr || (finalQty * mspRate).toLocaleString('en-IN')}`);
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+  } catch (err) {
+    alert(`Procurement handoff failed: ${err.message}`);
+  }
+}
+
+async function handleGroundCancel(bookingId) {
+  const reason = prompt(`Enter cancellation reason for ${bookingId}:`, 'Mandi administrative derating');
+  if (!reason) return;
+  try {
+    const res = await window.api.cancelBooking(bookingId, reason);
+    alert(`Booking ${bookingId} cancelled. Dynamic adaptation executed.`);
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+  } catch (err) {
+    alert(`Cancel failed: ${err.message}`);
+  }
+}
+
+async function handleSingleCounterToggle(counterId) {
+  try {
+    const res = await window.api.triggerCounterBreakdown('CENTRE-MP-IND-01', counterId, '2026-04-15');
+    alert(`Counter Updated: ${res.message}`);
+    await loadCentreOperationsData();
+  } catch (err) {
+    alert(`Counter update failed: ${err.message}`);
+  }
+}
+
+// ============================================================================
+// 5. Section 42 Real Engine Demonstration Runner
+// ============================================================================
 async function handleResetDemo() {
   try {
     const res = await window.api.resetAndSeedDemo();
     alert(`Backend Reset: ${res.message} (${res.bookingsCount} demo bookings seeded in MongoDB)`);
-    await loadLiveBackendData();
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
     updateFarmerTrackerStage(1, 'Awaiting Mandi Gate Arrival');
-    document.getElementById('capacity-alert-banner').style.display = 'none';
+    const banner = document.getElementById('capacity-alert-banner');
+    if (banner) banner.style.display = 'none';
   } catch (err) {
     alert(`Reset Failed: ${err.message}`);
   }
@@ -258,26 +538,30 @@ async function handleDemoStep(stepNumber) {
     const res = await window.api.executeDemoStep(stepNumber);
     console.log(`[Step ${stepNumber} Result]`, res);
 
-    // Refresh live roster from MongoDB
-    await loadLiveBackendData();
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
 
     if (stepNumber === '1') {
       updateFarmerTrackerStage(1, 'Token T-001 Verified at Gate 1');
-      document.getElementById('val-status').textContent = 'CHECKED IN';
+      const statusEl = document.getElementById('val-status');
+      if (statusEl) statusEl.textContent = 'CHECKED IN';
     } else if (stepNumber === '2') {
-      document.getElementById('val-live-eta').textContent = '10:45 AM (+10m buffer)';
+      const etaEl = document.getElementById('val-live-eta');
+      if (etaEl) etaEl.textContent = '10:45 AM (+10m buffer)';
     } else if (stepNumber === '3') {
       updateFarmerTrackerStage(4, 'Grade A Wheat (11.4% Moisture) - ₹91,000 Payment Advice Generated');
     } else if (stepNumber === '4') {
       alert(`Section 42 Dynamic Adaptation Executed:\n${res.movedCandidate}\n${res.unalteredCandidate}`);
     } else if (stepNumber === '6') {
-      document.getElementById('capacity-alert-banner').style.display = 'flex';
-      document.getElementById('val-throughput').textContent = '30 Q / hr';
-      document.getElementById('val-bottleneck-status').textContent = '⚠️ Weighbridge Bottleneck';
-      document.getElementById('val-bottleneck-status').className = 'text-amber';
-      document.getElementById('cmd-warning-count').textContent = '1 Mandi';
-      document.getElementById('cmd-sanwer-status').textContent = 'BOTTLENECK';
-      document.getElementById('cmd-sanwer-status').className = 'status-pill status-maintenance';
+      const banner = document.getElementById('capacity-alert-banner');
+      if (banner) banner.style.display = 'flex';
+      const cmdSanwerStatus = document.getElementById('cmd-sanwer-status');
+      if (cmdSanwerStatus) {
+        cmdSanwerStatus.textContent = 'BOTTLENECK';
+        cmdSanwerStatus.className = 'status-pill status-maintenance';
+      }
+      const cmdWarningCount = document.getElementById('cmd-warning-count');
+      if (cmdWarningCount) cmdWarningCount.textContent = '1 Mandi';
     }
   } catch (err) {
     alert(`Step ${stepNumber} Failed: ${err.message}`);
@@ -288,26 +572,66 @@ async function handleRunFullDemoScenario() {
   try {
     const res = await window.api.runFullDemoScenario();
     alert(`Full Section 42 Demo Scenario Completed! Executed ${res.steps.length} sequential ground events.`);
-    await loadLiveBackendData();
-    document.getElementById('capacity-alert-banner').style.display = 'flex';
+    await loadCentreOperationsData();
+    await loadFarmerPortalData();
+    const banner = document.getElementById('capacity-alert-banner');
+    if (banner) banner.style.display = 'flex';
   } catch (err) {
     alert(`Demo Scenario Failed: ${err.message}`);
   }
 }
 
-async function handleSingleCounterToggle(counterId) {
+// ============================================================================
+// 6. Government Command Centre Management (Section 30)
+// ============================================================================
+async function loadCommandCentreData() {
   try {
-    const res = await window.api.triggerCounterBreakdown('CENTRE-MP-IND-01', counterId, '2026-04-15');
-    alert(`Counter Updated: ${res.message}`);
-    await loadLiveBackendData();
+    const res = await window.api.getCentresSummary();
+    if (res && res.centres) {
+      renderCommandCentresTable(res.centres);
+    }
   } catch (err) {
-    // If specific breakdown endpoint fails, fallback to step 6 toggle
-    await handleDemoStep('6');
+    console.warn('[CommandCentre] Could not fetch command centre summary:', err.message);
   }
 }
 
+function renderCommandCentresTable(centres) {
+  const tbody = document.getElementById('cmd-mandis-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  centres.forEach((c) => {
+    const tr = document.createElement('tr');
+    const utilPct = c.capacityUtilizationPercentage || 0;
+    let barColor = 'bg-green';
+    if (utilPct > 75) barColor = 'bg-blue';
+    if (utilPct > 90) barColor = 'bg-amber';
+
+    const hasBottleneck = c.countersSummary?.active < c.countersSummary?.total;
+    const statusPill = hasBottleneck
+      ? '<span class="status-pill status-maintenance">BOTTLENECK</span>'
+      : '<span class="status-pill status-active">NORMAL</span>';
+
+    tr.innerHTML = `
+      <td><strong>${c.name}</strong></td>
+      <td>${c.district} / ${c.name.split(' ')[0]}</td>
+      <td>${c.sanctionedCapacityQuintals} Q</td>
+      <td>${c.bookedQuantityQuintals} Q</td>
+      <td>
+        <div class="mini-progress">
+          <div class="mini-bar ${barColor}" style="width: ${Math.min(utilPct, 100)}%"></div>
+          <span>${utilPct}%</span>
+        </div>
+      </td>
+      <td>${c.countersSummary ? `${c.countersSummary.active} / ${c.countersSummary.total} Operational` : '5 / 5 Operational'}</td>
+      <td>${statusPill}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
 // ============================================================================
-// 5. Booking Modal (Real POST /api/v1/bookings)
+// 7. Booking Modal (Real POST /api/v1/bookings)
 // ============================================================================
 function openBookingModal() {
   document.getElementById('booking-modal').style.display = 'flex';
@@ -342,14 +666,15 @@ async function handleCreateBooking(event) {
     const res = await window.api.createBooking(payload);
     alert(`Booking Confirmed! Token: ${res.booking.tokenNumber} (Booking ID: ${res.booking.bookingId}). Slot: ${res.booking.arrivalWindow.startTime} - ${res.booking.arrivalWindow.endTime}.`);
     closeBookingModal();
-    await loadLiveBackendData();
+    await loadFarmerPortalData();
+    await loadCentreOperationsData();
   } catch (err) {
     alert(`Booking Failed: ${err.message}`);
   }
 }
 
 // ============================================================================
-// 6. Telemetry Logger (Inspect Real REST & WebSocket Traffic)
+// 8. Telemetry Logger (Inspect Real REST & WebSocket Traffic)
 // ============================================================================
 window.onApiCallLogged = function (call) {
   const consoleEl = document.getElementById('telemetry-console-body');
@@ -365,7 +690,7 @@ window.onApiCallLogged = function (call) {
     <span class="log-status">${call.status} (${call.durationMs}ms)</span>
   `;
   consoleEl.insertBefore(item, consoleEl.firstChild);
-  if (consoleEl.children.length > 20) consoleEl.removeChild(consoleEl.lastChild);
+  if (consoleEl.children.length > 25) consoleEl.removeChild(consoleEl.lastChild);
 };
 
 window.onWebSocketEventLogged = function (ev) {
@@ -381,56 +706,55 @@ window.onWebSocketEventLogged = function (ev) {
     <span class="log-status">${JSON.stringify(ev.data).substring(0, 50)}...</span>
   `;
   consoleEl.insertBefore(item, consoleEl.firstChild);
-  if (consoleEl.children.length > 20) consoleEl.removeChild(consoleEl.lastChild);
+  if (consoleEl.children.length > 25) consoleEl.removeChild(consoleEl.lastChild);
 };
 
 // ============================================================================
-// 7. Initialization & Realtime Event Wiring
+// 9. Bootstrapping & Realtime Event Wiring
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[App] Initializing Government Procurement Platform Frontend...');
 
-  // 1. Authenticate Farmer Ramesh Verma via backend OTP flow
-  try {
-    const otpRes = await window.api.requestFarmerOtp('9876543210');
-    console.log('[Auth] Farmer OTP requested:', otpRes);
-    const verifyRes = await window.api.verifyFarmerOtp('9876543210', otpRes.mockOtp || '123456');
-    console.log('[Auth] Authenticated as Farmer:', verifyRes.user.name);
+  // 1. Authenticate all three personas on boot
+  await window.api.initSessions();
 
-    // 2. Connect to real Socket.IO WebSocket gateway with JWT
-    window.realtime.connect(verifyRes.accessToken);
-  } catch (err) {
-    console.warn('[Auth] Auto-login fallback error:', err.message);
-  }
+  // 2. Connect WebSocket gateway using active token
+  const wsToken = window.api.sessions.operator?.token || window.api.sessions.farmer?.token;
+  window.realtime.connect(wsToken);
 
-  // 3. Register WebSocket handlers to update UI when server emits events
+  // 3. Register Section 14 domain event listeners
   window.realtime.on('TOKEN_ASSIGNED', (data) => {
     console.log('[UI Event] Token Assigned:', data);
     updateFarmerTrackerStage(1, `Token ${data.tokenNumber} Verified at Gate`);
-    loadLiveBackendData();
+    loadCentreOperationsData();
+    loadFarmerPortalData();
   });
 
   window.realtime.on('WEIGHMENT_COMPLETED', (data) => {
     console.log('[UI Event] Weighment Completed:', data);
     updateFarmerTrackerStage(2, `Gross Weight: ${data.grossWeightQuintals}Q recorded`);
-    loadLiveBackendData();
+    loadCentreOperationsData();
+    loadFarmerPortalData();
   });
 
   window.realtime.on('QUALITY_COMPLETED', (data) => {
     console.log('[UI Event] Quality Completed:', data);
     updateFarmerTrackerStage(3, `Grade: ${data.grade} (${data.moisturePercentage}% Moisture)`);
-    loadLiveBackendData();
+    loadCentreOperationsData();
+    loadFarmerPortalData();
   });
 
   window.realtime.on('PROCUREMENT_COMPLETED', (data) => {
     console.log('[UI Event] Procurement Completed:', data);
     updateFarmerTrackerStage(4, `₹${data.amountInr} Advice Dispatched`);
-    loadLiveBackendData();
+    loadCentreOperationsData();
+    loadFarmerPortalData();
   });
 
   window.realtime.on('SCHEDULING_UPDATED', (data) => {
     console.log('[UI Event] Scheduling Updated:', data);
-    loadLiveBackendData();
+    loadCentreOperationsData();
+    loadFarmerPortalData();
   });
 
   window.realtime.on('ETA_UPDATED', (data) => {
@@ -441,13 +765,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.realtime.on('CENTRE_CAPACITY_CHANGED', (data) => {
     console.log('[UI Event] Capacity Changed:', data);
-    loadLiveBackendData();
+    loadCentreOperationsData();
     if (data.status === 'MAINTENANCE') {
       const banner = document.getElementById('capacity-alert-banner');
       if (banner) banner.style.display = 'flex';
     }
   });
 
-  // 4. Initial load of data from MongoDB
-  await loadLiveBackendData();
+  // 4. Initial load of Farmer Portal View
+  updatePersonaBadge('farmer');
+  await loadFarmerPortalData();
+  await loadCentreOperationsData();
 });

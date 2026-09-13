@@ -1145,3 +1145,50 @@ body {
     margin: 0 0 0 16px;
   }
 }
+
+/* Multi-Persona & Ground Operations UI */
+.persona-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #F8FAFC;
+  letter-spacing: 0.02em;
+}
+
+.persona-icon {
+  font-size: 0.9rem;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-group-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-ghost-action {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--gov-navy);
+}
+.btn-ghost-action:hover {
+  background: #E2E8F0;
+}
+
