@@ -12,7 +12,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:unit": "jest tests/unit --runInBand",
-    "test:integration": "jest tests/integration --runInBand"
+    "test:integration": "jest tests/integration --runInBand",
+    "test:load": "ts-node tests/load/load-test-benchmark.ts",
+    "demo:sih": "ts-node tests/integration/run-sih-demo-scenario.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.8",

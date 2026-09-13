@@ -30,8 +30,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Idempotency-Key'],
   });
 
-  // Global Prefix
-  app.setGlobalPrefix(apiPrefix);
+  // Global Prefix with root health/ready/live probes
+  app.setGlobalPrefix(apiPrefix, {
+    exclude: ['health', 'ready', 'live'],
+  });
 
   // Strict Validation Pipe (Section 19)
   app.useGlobalPipes(

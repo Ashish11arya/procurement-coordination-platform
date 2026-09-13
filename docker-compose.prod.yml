@@ -1,0 +1,87 @@
+version: '3.8'
+
+# ==============================================================================
+# Production Deployment Template (Section 37 of PROJECT_SPEC.md)
+# Hardened for Government Cloud Infrastructure (MeitY Empanelled / AWS / GCP / Azure)
+# ==============================================================================
+
+services:
+  backend:
+    image: ${DOCKER_REGISTRY:-registry.gov.in}/sih-procurement/backend:${IMAGE_TAG:-latest}
+    container_name: sih_backend_prod
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - API_PREFIX=api/v1
+      - MONGODB_URI=${PROD_MONGODB_URI}
+      - REDIS_HOST=${PROD_REDIS_HOST}
+      - REDIS_PORT=${PROD_REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${PROD_REDIS_PASSWORD}
+      - JWT_ACCESS_SECRET=${PROD_JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${PROD_JWT_REFRESH_SECRET}
+      - CORS_ORIGIN=${PROD_CORS_ORIGINS}
+      - GOVERNMENT_PROVIDER=${PROD_GOVERNMENT_PROVIDER:-CFPP}
+      - OTP_EXPIRY_SECONDS=300
+      - SCHEDULER_MIN_NOTICE_MINUTES=45
+      - RATE_LIMIT_POINTS=100
+      - RATE_LIMIT_DURATION=60
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - sih_prod_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # In production, MongoDB and Redis are typically provisioned via managed cloud clusters
+  # (e.g. AWS DocumentDB / MongoDB Atlas / Azure Cosmos / Google Cloud Spanner / MemoryStore / ElastiCache).
+  # The services below can be run if deploying to dedicated bare-metal state data centres.
+  redis_ha:
+    image: redis:7.0-alpine
+    container_name: sih_redis_prod
+    restart: always
+    command: ["redis-server", "--requirepass", "${PROD_REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis_prod_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${PROD_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sih_prod_network
+
+volumes:
+  redis_prod_data:
+    driver: local
+
+networks:
+  sih_prod_network:
+    driver: bridge

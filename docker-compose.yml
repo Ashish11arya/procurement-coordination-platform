@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 1. NestJS Backend API & Coordination Engine
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sih_backend_dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - API_PREFIX=api/v1
+      - MONGODB_URI=mongodb://mongodb:27017/procurement_coord_dev
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=dev-jwt-access-secret-32-chars-minimum-key!
+      - JWT_REFRESH_SECRET=dev-jwt-refresh-secret-32-chars-minimum-key!
+      - CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+      - GOVERNMENT_PROVIDER=MOCK
+      - OTP_EXPIRY_SECONDS=300
+      - SCHEDULER_MIN_NOTICE_MINUTES=45
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sih_network
+
+  # ============================================================================
+  # 2. Authoritative Document Database (MongoDB 7.0)
+  # ============================================================================
+  mongodb:
+    image: mongo:7.0
+    container_name: sih_mongodb_dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - sih_network
+
+  # ============================================================================
+  # 3. Distributed Cache, Pub/Sub & Locking Engine (Redis 7 Alpine)
+  # ============================================================================
+  redis:
+    image: redis:7.0-alpine
+    container_name: sih_redis_dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - sih_network
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  sih_network:
+    driver: bridge

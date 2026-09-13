@@ -21,6 +21,7 @@ import { EventsModule } from './infrastructure/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { PredictionsModule } from './modules/predictions/predictions.module';
+import { HealthModule } from './infrastructure/health/health.module';
 
 import { CsrfGuard } from './infrastructure/security/csrf.guard';
 import { RateLimitGuard } from './infrastructure/security/rate-limit.guard';
@@ -50,6 +51,7 @@ import { MongoSanitizeMiddleware } from './infrastructure/security/mongo-sanitiz
     NotificationsModule,
     RealtimeModule,
     PredictionsModule,
+    HealthModule,
   ],
   providers: [
     {
