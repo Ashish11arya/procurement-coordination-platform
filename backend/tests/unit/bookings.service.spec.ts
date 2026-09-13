@@ -225,6 +225,67 @@ describe('BookingsService (Unit Tests)', () => {
         service.createBooking('user-farmer-1', validBookingDto as any),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should simulate two simultaneous requests racing for the last slot capacity and verify only one succeeds', async () => {
+      // Setup window with capacity 63Q, pre-booked with 25Q -> 38Q remaining
+      await windowModel.create({
+        centreId: 'CENTRE-MP-IND-01',
+        date: '2026-09-30',
+        slotIndex: 3,
+        startTime: '12:00',
+        endTime: '13:00',
+        maxCapacityQuintals: 63,
+        bookedQuantityQuintals: 25,
+        bookingCount: 1,
+      });
+
+      const bookingDtoA = {
+        centreId: 'CENTRE-MP-IND-01',
+        commodityCode: 'WHEAT',
+        quantityQuintals: 30,
+        bookingDate: '2026-09-30',
+        preferredSlotIndex: 3,
+        vehicles: [{ vehicleNumber: 'MP-09-AA-1111', allocatedQuantityQuintals: 30 }],
+      };
+
+      const bookingDtoB = {
+        centreId: 'CENTRE-MP-IND-01',
+        commodityCode: 'WHEAT',
+        quantityQuintals: 30,
+        bookingDate: '2026-09-30',
+        preferredSlotIndex: 3,
+        vehicles: [{ vehicleNumber: 'MP-09-BB-2222', allocatedQuantityQuintals: 30 }],
+      };
+
+      // Launch both requests simultaneously in parallel
+      const [resA, resB] = await Promise.allSettled([
+        service.createBooking('user-farmer-1', bookingDtoA as any),
+        service.createBooking('user-farmer-1', bookingDtoB as any),
+      ]);
+
+      const fulfilled = [resA, resB].filter((r) => r.status === 'fulfilled');
+      const rejected = [resA, resB].filter((r) => r.status === 'rejected');
+
+      // Exactly ONE request succeeds
+      expect(fulfilled).toHaveLength(1);
+      // Exactly ONE request is rejected
+      expect(rejected).toHaveLength(1);
+
+      // Verify the rejected request failed with ConflictException on capacity
+      const rejectionError = (rejected[0] as PromiseRejectedResult).reason;
+      expect(rejectionError).toBeInstanceOf(ConflictException);
+      expect(rejectionError.message).toContain('does not have sufficient capacity');
+
+      // Verify the ArrivalWindow was atomically incremented to exactly 55Q (25 + 30), never 85Q
+      const win = await windowModel.findOne({
+        centreId: 'CENTRE-MP-IND-01',
+        date: '2026-09-30',
+        slotIndex: 3,
+      }).exec();
+
+      expect(win.bookedQuantityQuintals).toBe(55);
+      expect(win.bookingCount).toBe(2);
+    });
   });
 
   describe('Booking Cancellation', () => {

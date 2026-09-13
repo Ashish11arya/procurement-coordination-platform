@@ -449,6 +449,84 @@ describe('Phase 2: Farmer + Centre + Booking + Capacity (Integration Tests)', ()
         })
         .expect(409);
     });
+
+    it('POST /api/v1/bookings - should simulate two simultaneous requests racing for the last available slot and verify only one succeeds', async () => {
+      // Slot 2 has max capacity 63Q, pre-booked 25Q -> 38Q remaining
+      await windowModel.create({
+        centreId: 'CENTRE-MP-IND-01',
+        date: '2026-09-29',
+        slotIndex: 2,
+        startTime: '11:00',
+        endTime: '12:00',
+        maxCapacityQuintals: 63,
+        bookedQuantityQuintals: 25,
+        bookingCount: 1,
+      });
+
+      // Two simultaneous requests both asking for 30Q (30 + 30 = 60Q > 38Q remaining)
+      const reqA = request(app.getHttpServer())
+        .post('/api/v1/bookings')
+        .set('Authorization', `Bearer ${farmerJwtToken}`)
+        .send({
+          centreId: 'CENTRE-MP-IND-01',
+          commodityCode: 'WHEAT',
+          quantityQuintals: 30,
+          bookingDate: '2026-09-29',
+          preferredSlotIndex: 2,
+          vehicles: [
+            {
+              vehicleNumber: 'MP-09-RA-1111',
+              allocatedQuantityQuintals: 30,
+            },
+          ],
+        });
+
+      const reqB = request(app.getHttpServer())
+        .post('/api/v1/bookings')
+        .set('Authorization', `Bearer ${farmerJwtToken}`)
+        .send({
+          centreId: 'CENTRE-MP-IND-01',
+          commodityCode: 'WHEAT',
+          quantityQuintals: 30,
+          bookingDate: '2026-09-29',
+          preferredSlotIndex: 2,
+          vehicles: [
+            {
+              vehicleNumber: 'MP-09-RB-2222',
+              allocatedQuantityQuintals: 30,
+            },
+          ],
+        });
+
+      // Execute concurrently in parallel
+      const [resA, resB] = await Promise.all([reqA, reqB]);
+
+      const statuses = [resA.status, resB.status].sort();
+      expect(statuses).toEqual([201, 409]);
+
+      // The winning request gets 201 Created
+      const winner = resA.status === 201 ? resA : resB;
+      const loser = resA.status === 409 ? resA : resB;
+
+      expect(winner.body.success).toBe(true);
+      expect(winner.body.booking).toBeDefined();
+
+      // The losing request receives 409 Conflict with capacity error
+      expect(loser.body.statusCode).toBe(409);
+      expect(loser.body.message).toContain('does not have sufficient capacity');
+
+      // Database state verification: total booked is exactly 55Q (25 + 30), not over-allocated to 85Q
+      const finalWindow = await windowModel
+        .findOne({
+          centreId: 'CENTRE-MP-IND-01',
+          date: '2026-09-29',
+          slotIndex: 2,
+        })
+        .exec();
+
+      expect(finalWindow.bookedQuantityQuintals).toBe(55);
+      expect(finalWindow.bookingCount).toBe(2);
+    });
   });
 
   // --------------------------------------------------------------------------
