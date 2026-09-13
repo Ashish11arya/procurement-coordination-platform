@@ -6,7 +6,10 @@ import {
   ForbiddenException,
   Inject,
   Logger,
+  Optional,
 } from '@nestjs/common';
+import { EventBusService } from '../../infrastructure/events/event-bus.service';
+import { DomainEventType } from '../../infrastructure/events/domain-events';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -59,6 +62,7 @@ export class BookingsService {
     private readonly idempotencyService: IdempotencyService,
     @Inject(GOVERNMENT_DATA_PROVIDER)
     private readonly govProvider: GovernmentDataProvider,
+    @Optional() private readonly eventBusService?: EventBusService,
   ) {}
 
   /**
@@ -295,6 +299,26 @@ export class BookingsService {
       `Booking created: ${bookingId} (Token: ${tokenNumber}) for Farmer ${farmer.farmerId} at ${dto.centreId}`,
     );
 
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.BOOKING_CONFIRMED,
+        timestamp: new Date(),
+        centreId: dto.centreId,
+        bookingId,
+        farmerId: farmer.farmerId,
+        payload: {
+          bookingId,
+          farmerId: farmer.farmerId,
+          centreId: dto.centreId,
+          commodityCode,
+          quantityQuintals: dto.quantityQuintals,
+          arrivalWindow: arrivalWindowDetails,
+          tokenNumber,
+        },
+      });
+    }
+
     return resultPayload;
   }
 
@@ -390,6 +414,26 @@ export class BookingsService {
       .exec();
 
     this.logger.log(`Booking ${bookingId} cancelled by farmer ${farmerId}. Reason: ${dto.reason}`);
+
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.BOOKING_CANCELLED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId,
+        farmerId,
+        payload: {
+          bookingId,
+          farmerId,
+          centreId: booking.centreId,
+          reason: dto.reason,
+          quantityQuintals: booking.quantityQuintals,
+          arrivalWindow: booking.arrivalWindow,
+        },
+      });
+    }
+
     return booking;
   }
 }

@@ -103,7 +103,7 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
       return { modifiedCount: item ? 1 : 0 };
     }
 
-    static async updateMany(query: any, update: any) {
+    static updateMany(query: any, update: any) {
       const filterFn = createFilterFn(query);
       let count = 0;
       for (const item of store) {
@@ -112,7 +112,11 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
           count++;
         }
       }
-      return { modifiedCount: count };
+      const res = { modifiedCount: count };
+      return {
+        exec: async () => res,
+        then: (resolve: any, reject: any) => Promise.resolve(res).then(resolve, reject),
+      };
     }
 
     static async insertMany(items: any[]) {

@@ -4,10 +4,13 @@ import {
   BadRequestException,
   Logger,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
+import { EventBusService } from '../../infrastructure/events/event-bus.service';
+import { DomainEventType } from '../../infrastructure/events/domain-events';
 import {
   SchedulingDecision,
   SchedulingDecisionDocument,
@@ -62,6 +65,7 @@ export class SchedulingService {
     private readonly counterModel: Model<CounterDocument>,
     @Inject(GOVERNMENT_DATA_PROVIDER)
     private readonly govProvider: GovernmentDataProvider,
+    @Optional() private readonly eventBusService?: EventBusService,
   ) {}
 
   // --------------------------------------------------------------------------
@@ -448,6 +452,26 @@ export class SchedulingService {
 
       remainingFreedCapacity -= candidate.quantityQuintals;
       await this.logAdaptationDecision(candidate, freedBooking, decisionRecord, triggerEvent);
+
+      if (this.eventBusService) {
+        await this.eventBusService.publish({
+          eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          eventType: DomainEventType.SCHEDULING_UPDATED,
+          timestamp: new Date(),
+          centreId: candidate.centreId,
+          bookingId: candidate.bookingId,
+          farmerId: candidate.farmerId,
+          payload: {
+            bookingId: candidate.bookingId,
+            farmerId: candidate.farmerId,
+            centreId: candidate.centreId,
+            previousSlot: { slotIndex: oldSlotIndex },
+            newSlot: candidate.arrivalWindow,
+            triggerEvent,
+            freedBookingId: freedBooking.bookingId,
+          },
+        });
+      }
     }
 
     const report: AdaptationReport = {

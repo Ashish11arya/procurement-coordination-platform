@@ -6,7 +6,10 @@ import {
   ConflictException,
   Inject,
   Logger,
+  Optional,
 } from '@nestjs/common';
+import { EventBusService } from '../../infrastructure/events/event-bus.service';
+import { DomainEventType } from '../../infrastructure/events/domain-events';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -80,6 +83,7 @@ export class OperationsService {
     private readonly queueService: QueueService,
     private readonly auditService: AuditService,
     private readonly redisService: RedisService,
+    @Optional() private readonly eventBusService?: EventBusService,
   ) {}
 
   // --------------------------------------------------------------------------
@@ -183,6 +187,37 @@ export class OperationsService {
       },
       source: AuditSource.HTTP_API,
     });
+
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.TOKEN_ASSIGNED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId: booking.bookingId,
+        farmerId: booking.farmerId,
+        payload: {
+          bookingId: booking.bookingId,
+          farmerId: booking.farmerId,
+          centreId: booking.centreId,
+          tokenNumber: dto.tokenNumber,
+          vehicleNumber: dto.vehicleNumber,
+        },
+      });
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.FARMER_ARRIVED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId: booking.bookingId,
+        farmerId: booking.farmerId,
+        payload: {
+          bookingId: booking.bookingId,
+          farmerId: booking.farmerId,
+          centreId: booking.centreId,
+        },
+      });
+    }
 
     return {
       success: true,
@@ -320,6 +355,26 @@ export class OperationsService {
       source: AuditSource.HTTP_API,
     });
 
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.WEIGHMENT_COMPLETED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId: booking.bookingId,
+        farmerId: booking.farmerId,
+        payload: {
+          bookingId: booking.bookingId,
+          farmerId: booking.farmerId,
+          centreId: booking.centreId,
+          slipNumber,
+          grossWeightKg: dto.grossWeightQuintals * 100,
+          tareWeightKg: dto.tareWeightQuintals * 100,
+          netWeightQuintals,
+        },
+      });
+    }
+
     return {
       success: true,
       bookingId: booking.bookingId,
@@ -423,6 +478,25 @@ export class OperationsService {
       },
       source: AuditSource.HTTP_API,
     });
+
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.QUALITY_COMPLETED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId: booking.bookingId,
+        farmerId: booking.farmerId,
+        payload: {
+          bookingId: booking.bookingId,
+          farmerId: booking.farmerId,
+          centreId: booking.centreId,
+          verdict: dto.verdict,
+          assignedGrade: dto.assignedGrade,
+          moisturePercentage: dto.moisturePercentage,
+        },
+      });
+    }
 
     return {
       success: true,
@@ -554,6 +628,53 @@ export class OperationsService {
       },
       source: AuditSource.HTTP_API,
     });
+
+    if (this.eventBusService) {
+      await this.eventBusService.publish({
+        eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        eventType: DomainEventType.PROCUREMENT_COMPLETED,
+        timestamp: new Date(),
+        centreId: booking.centreId,
+        bookingId: booking.bookingId,
+        farmerId: booking.farmerId,
+        payload: {
+          bookingId: booking.bookingId,
+          farmerId: booking.farmerId,
+          centreId: booking.centreId,
+          receiptNumber,
+          quantityProcuredQuintals: dto.finalQuantityQuintals,
+          totalPayoutEstimated: totalPayout,
+        },
+      });
+
+      if (procurementRecord.govSyncStatus === GovSyncStatus.FAILED) {
+        await this.eventBusService.publish({
+          eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          eventType: DomainEventType.GOVERNMENT_SYNC_FAILED,
+          timestamp: new Date(),
+          centreId: booking.centreId,
+          bookingId: booking.bookingId,
+          payload: {
+            bookingId: booking.bookingId,
+            centreId: booking.centreId,
+            error: procurementRecord.govSyncError,
+          },
+        });
+      } else if (procurementRecord.govSyncStatus === GovSyncStatus.SYNCED) {
+        await this.eventBusService.publish({
+          eventId: `EVT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          eventType: DomainEventType.GOVERNMENT_SYNC_COMPLETED,
+          timestamp: new Date(),
+          centreId: booking.centreId,
+          bookingId: booking.bookingId,
+          payload: {
+            bookingId: booking.bookingId,
+            centreId: booking.centreId,
+            govReferenceId: procurementRecord.govReferenceId,
+          },
+        });
+      }
+    }
 
     return {
       success: true,

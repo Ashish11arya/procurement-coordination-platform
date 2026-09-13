@@ -17,6 +17,9 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { OperationsModule } from './modules/operations/operations.module';
 import { CommandCentreModule } from './modules/command-centre/command-centre.module';
+import { EventsModule } from './infrastructure/events/events.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
@@ -27,6 +30,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     }),
     DatabaseModule,
     RedisModule,
+    EventsModule,
     SecurityModule,
     AuditModule,
     IntegrationsModule,
@@ -38,6 +42,8 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     QueueModule,
     OperationsModule,
     CommandCentreModule,
+    NotificationsModule,
+    RealtimeModule,
   ],
   providers: [
     {
