@@ -38,6 +38,7 @@ import { WeighingRecord } from '../../src/modules/operations/schemas/weighing-re
 import { QualityRecord, QualityGrade, QualityVerdict } from '../../src/modules/operations/schemas/quality-record.schema';
 import { ProcurementRecord, GovSyncStatus } from '../../src/modules/operations/schemas/procurement-record.schema';
 import { ServiceSession } from '../../src/modules/operations/schemas/service-session.schema';
+import { PredictionLog } from '../../src/modules/predictions/schemas/prediction-log.schema';
 
 import { createMockModel } from './in-memory-mongo.mock';
 
@@ -63,6 +64,7 @@ describe('Phase 4: Centre Operations + Government Command Centre (Integration Te
   let qualityModel: any;
   let procurementModel: any;
   let sessionModel: any;
+  let predictionLogModel: any;
 
   // Tokens for all 11 roles
   let farmerToken: string;
@@ -99,6 +101,7 @@ describe('Phase 4: Centre Operations + Government Command Centre (Integration Te
     qualityModel = createMockModel();
     procurementModel = createMockModel();
     sessionModel = createMockModel();
+    predictionLogModel = createMockModel();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -146,6 +149,7 @@ describe('Phase 4: Centre Operations + Government Command Centre (Integration Te
       .overrideProvider(getModelToken(QualityRecord.name)).useValue(qualityModel)
       .overrideProvider(getModelToken(ProcurementRecord.name)).useValue(procurementModel)
       .overrideProvider(getModelToken(ServiceSession.name)).useValue(sessionModel)
+      .overrideProvider(getModelToken(PredictionLog.name)).useValue(predictionLogModel)
       .compile();
 
     app = moduleFixture.createNestApplication();

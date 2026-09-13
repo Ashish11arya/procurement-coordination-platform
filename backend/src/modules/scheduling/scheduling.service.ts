@@ -40,6 +40,7 @@ import {
   GovernmentDataProvider,
   GOVERNMENT_DATA_PROVIDER,
 } from '../integrations/contracts/government-data-provider.interface';
+import { PredictionsService } from '../predictions/predictions.service';
 
 const PIPELINE_STAGES = [
   CounterStage.CHECKIN,
@@ -66,6 +67,7 @@ export class SchedulingService {
     @Inject(GOVERNMENT_DATA_PROVIDER)
     private readonly govProvider: GovernmentDataProvider,
     @Optional() private readonly eventBusService?: EventBusService,
+    @Optional() private readonly predictionsService?: PredictionsService,
   ) {}
 
   // --------------------------------------------------------------------------
@@ -212,10 +214,10 @@ export class SchedulingService {
       sm.isBottleneck = sm.hourlyCapacityQuintals === minHourlyThroughput;
     });
 
-    // 3. Deterministic Service Duration Calculation (Structured for pluggable AI in Phase 6)
-    const baseSetupMinutes = 10;
-    const processingMinutes = Math.ceil((req.quantityQuintals / 40.0) * 60);
-    const estimatedDurationMinutes = baseSetupMinutes + processingMinutes;
+    // 3. Service Duration Calculation (Advisory metric per Section 7 & 31)
+    const durationInfo = await this.resolveServiceDuration(req);
+    const estimatedDurationMinutes = durationInfo.durationMinutes;
+    const predictionMetadata = durationInfo.predictionMeta;
 
     // 4. Feasible Operating Slot Generation (09:00 - 18:00)
     const candidateSlots = this.generateOperatingSlots(centre.operatingHours);
@@ -292,6 +294,7 @@ export class SchedulingService {
         dailySanctionedCapacity,
         currentDailyBooked,
         estimatedDurationMinutes,
+        predictionMetadata,
       };
     }
 
@@ -334,10 +337,72 @@ export class SchedulingService {
       isFeasible: true,
       assignedWindow: selectedSlot,
       estimatedDurationMinutes,
+      predictionMetadata,
       stageMetrics,
       dailySanctionedCapacity,
       currentDailyBooked,
     };
+  }
+
+  /**
+   * Resolve estimated service duration (Section 7, 31, 32):
+   * Uses PredictionsService advisory model with strict 50ms timeout & confidence checks.
+   * If predictions are disabled, slow (>50ms), low-confidence (<0.40), out of bounds (<5m or >180m),
+   * or throwing errors, it falls back seamlessly to the Phase 3 deterministic calculation.
+   * Section 7, 31, 32 rule: Prediction never affects constraint checks or feasibility decisions.
+   */
+  async resolveServiceDuration(
+    req: BookingScheduleRequest,
+  ): Promise<{ durationMinutes: number; predictionMeta?: any }> {
+    const baseSetupMinutes = 10;
+    const processingMinutes = Math.ceil((req.quantityQuintals / 40.0) * 60);
+    const deterministicDuration = baseSetupMinutes + processingMinutes;
+
+    if (!this.predictionsService || process.env.PREDICTIONS_ENABLED === 'false') {
+      return { durationMinutes: deterministicDuration };
+    }
+
+    try {
+      // Strict 50ms SLA budget — AI can NEVER hang the core scheduler
+      const prediction = await Promise.race([
+        this.predictionsService.predictServiceTime({
+          centreId: req.centreId,
+          commodityCode: req.commodityCode,
+          quantityQuintals: req.quantityQuintals,
+          vehicleCount: req.vehicleCount || 1,
+        }),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('PREDICTION_TIMEOUT')), 50),
+        ),
+      ]);
+
+      const MIN_CONFIDENCE_THRESHOLD = 0.4;
+      const MIN_PHYSICAL_MINUTES = 5;
+      const MAX_PHYSICAL_MINUTES = 180;
+
+      if (
+        prediction &&
+        prediction.confidence >= MIN_CONFIDENCE_THRESHOLD &&
+        Number.isFinite(prediction.value?.estimatedDurationMinutes) &&
+        prediction.value.estimatedDurationMinutes >= MIN_PHYSICAL_MINUTES &&
+        prediction.value.estimatedDurationMinutes <= MAX_PHYSICAL_MINUTES
+      ) {
+        return {
+          durationMinutes: Math.round(prediction.value.estimatedDurationMinutes),
+          predictionMeta: prediction.metadata,
+        };
+      }
+
+      this.logger.warn(
+        `Prediction rejected or uncertain (confidence=${prediction?.confidence}, duration=${prediction?.value?.estimatedDurationMinutes}). Using deterministic baseline.`,
+      );
+      return { durationMinutes: deterministicDuration };
+    } catch (err) {
+      this.logger.warn(
+        `Prediction service error or timeout (${err.message}). Using deterministic baseline.`,
+      );
+      return { durationMinutes: deterministicDuration };
+    }
   }
 
   // --------------------------------------------------------------------------

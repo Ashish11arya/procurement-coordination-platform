@@ -11,6 +11,7 @@ import { Counter, CounterSchema } from '../centres/schemas/counter.schema';
 import { SchedulingService } from './scheduling.service';
 import { SchedulingController } from './scheduling.controller';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { PredictionsModule } from '../predictions/predictions.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
       { name: Counter.name, schema: CounterSchema },
     ]),
     IntegrationsModule,
+    PredictionsModule,
   ],
   controllers: [SchedulingController],
   providers: [SchedulingService],

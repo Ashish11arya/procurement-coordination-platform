@@ -20,6 +20,7 @@ import { CommandCentreModule } from './modules/command-centre/command-centre.mod
 import { EventsModule } from './infrastructure/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { PredictionsModule } from './modules/predictions/predictions.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
@@ -44,6 +45,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     CommandCentreModule,
     NotificationsModule,
     RealtimeModule,
+    PredictionsModule,
   ],
   providers: [
     {

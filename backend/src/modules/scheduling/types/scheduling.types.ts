@@ -31,6 +31,7 @@ export interface SchedulingEvaluationResult {
   isFeasible: boolean;
   assignedWindow?: OperatingSlot;
   estimatedDurationMinutes: number;
+  predictionMetadata?: any;
   rejectionReason?: string;
   failedConstraint?: string;
   stageMetrics: StageCapacityMetric[];
