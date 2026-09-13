@@ -1,7 +1,10 @@
 import { Types } from 'mongoose';
 
 export function createMockModel<T extends { _id?: any }>(initialData: any[] = []) {
-  const store: any[] = [...initialData];
+  const store: any[] = initialData.map((item) => ({
+    _id: item._id || new Types.ObjectId(),
+    ...item,
+  }));
 
   class MockModel {
     [key: string]: any;
@@ -20,7 +23,8 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
     }
 
     async save() {
-      const idx = store.findIndex((item) => item._id.toString() === this._id.toString());
+      const thisId = this._id ? this._id.toString() : '';
+      const idx = store.findIndex((item) => item._id && item._id.toString() === thisId);
       const doc = { ...this };
       if (idx >= 0) {
         store[idx] = doc;
@@ -158,6 +162,12 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
   return MockModel;
 }
 
+function getNestedValue(obj: any, path: string): any {
+  if (!obj) return undefined;
+  if (!path.includes('.')) return obj[path];
+  return path.split('.').reduce((acc, part) => acc?.[part], obj);
+}
+
 function createFilterFn(query: any) {
   return (item: any) => {
     if (!query || Object.keys(query).length === 0) return true;
@@ -168,24 +178,30 @@ function createFilterFn(query: any) {
     }
 
     for (const [key, val] of Object.entries(query)) {
+      const actualVal = getNestedValue(item, key);
+
       if (key === '_id' || key === 'userId') {
-        const itemVal = item[key]?.toString();
+        const itemVal = actualVal?.toString();
         const targetVal = val?.toString();
         if (itemVal !== targetVal) return false;
       } else if (typeof val === 'object' && val !== null) {
         if (val instanceof Types.ObjectId) {
-          if (item[key]?.toString() !== val.toString()) return false;
+          if (actualVal?.toString() !== val.toString()) return false;
         } else if ((val as any).$in && Array.isArray((val as any).$in)) {
-          if (!(val as any).$in.includes(item[key])) return false;
+          if (!(val as any).$in.includes(actualVal)) return false;
         } else if ((val as any).$lte !== undefined) {
-          if ((item[key] || 0) > (val as any).$lte) return false;
+          if ((actualVal ?? 0) > (val as any).$lte) return false;
         } else if ((val as any).$gte !== undefined) {
-          if ((item[key] || 0) < (val as any).$gte) return false;
-        } else if (item[key] !== val) {
+          if ((actualVal ?? 0) < (val as any).$gte) return false;
+        } else if ((val as any).$gt !== undefined) {
+          if ((actualVal ?? 0) <= (val as any).$gt) return false;
+        } else if ((val as any).$lt !== undefined) {
+          if ((actualVal ?? 0) >= (val as any).$lt) return false;
+        } else if (actualVal !== val) {
           return false;
         }
       } else {
-        if (item[key] !== val) return false;
+        if (actualVal !== val) return false;
       }
     }
     return true;

@@ -13,6 +13,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { FarmersModule } from './modules/farmers/farmers.module';
 import { CentresModule } from './modules/centres/centres.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { SchedulingModule } from './modules/scheduling/scheduling.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
@@ -30,6 +32,8 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     FarmersModule,
     CentresModule,
     BookingsModule,
+    SchedulingModule,
+    QueueModule,
   ],
   providers: [
     {
