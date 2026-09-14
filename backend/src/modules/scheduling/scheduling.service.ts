@@ -84,12 +84,19 @@ export class SchedulingService {
       throw new BadRequestException(`Centre '${req.centreId}' is non-existent or inactive.`);
     }
 
-    // 1. Authoritative Daily Capacity Ceiling (Section 8)
-    const govCapacity = await this.govProvider.getCentreCapacity(req.centreId, req.bookingDate);
-    const dailySanctionedCapacity = Math.min(
-      centre.dailyCapacityQuintals,
-      govCapacity.sanctionedDailyCapacityQuintals,
-    );
+    // 1. Authoritative Daily Capacity Ceiling (Section 8 & 21)
+    let dailySanctionedCapacity = centre.dailyCapacityQuintals;
+    try {
+      const govCapacity = await this.govProvider.getCentreCapacity(req.centreId, req.bookingDate);
+      dailySanctionedCapacity = Math.min(
+        centre.dailyCapacityQuintals,
+        govCapacity.sanctionedDailyCapacityQuintals,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `Government capacity query failed (${err.message}). Defaulting to local centre ceiling: ${centre.dailyCapacityQuintals}Q`,
+      );
+    }
 
     const activeBookings = await this.bookingModel
       .find({

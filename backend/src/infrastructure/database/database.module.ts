@@ -50,11 +50,19 @@ async function checkPortReachable(host: string, port: number, timeoutMs = 800): 
           } else {
             uri = 'mongodb://localhost:27017/procurement_coord_dev';
           }
+        } else {
+          const maskedUri = uri.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@');
+          logger.log(`Connecting to Managed MongoDB at: ${maskedUri}`);
         }
+
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
         return {
           uri,
-          autoIndex: true,
+          autoIndex: !isProduction,
+          serverSelectionTimeoutMS: 5000,
+          connectTimeoutMS: 10000,
+          socketTimeoutMS: 45000,
         };
       },
     }),

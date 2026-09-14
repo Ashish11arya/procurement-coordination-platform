@@ -23,6 +23,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { PredictionsModule } from './modules/predictions/predictions.module';
 import { HealthModule } from './infrastructure/health/health.module';
 import { DemoModule } from './modules/demo/demo.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
 
 import { CsrfGuard } from './infrastructure/security/csrf.guard';
 import { RateLimitGuard } from './infrastructure/security/rate-limit.guard';
@@ -40,6 +41,7 @@ import { MongoSanitizeMiddleware } from './infrastructure/security/mongo-sanitiz
     EventsModule,
     SecurityModule,
     AuditModule,
+    ComplianceModule,
     IntegrationsModule,
     AuthModule,
     FarmersModule,

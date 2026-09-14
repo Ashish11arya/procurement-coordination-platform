@@ -71,7 +71,14 @@ export class CentresService {
     // If database is empty, seed from GovernmentDataProvider for initial bootstrapping
     const count = await this.centreModel.countDocuments().exec();
     if (count === 0) {
-      await this.seedFromGovernmentProvider();
+      try {
+        await this.seedFromGovernmentProvider();
+      } catch (err: any) {
+        this.logger.warn(
+          `Could not seed centres from government provider (${err.message}). Seeding local fallback centres.`,
+        );
+        await this.seedLocalFallbackCentres();
+      }
     }
 
     const query: any = {};
@@ -87,26 +94,32 @@ export class CentresService {
     let centre = await this.centreModel.findOne({ centreId }).exec();
     if (!centre) {
       // Check if government provider knows of this centre
-      const govCentres = await this.govProvider.getCentres();
-      const match = govCentres.find((c) => c.centreId === centreId);
-      if (match) {
-        centre = new this.centreModel({
-          centreId: match.centreId,
-          name: match.name,
-          agencyName: match.agencyName,
-          state: match.state,
-          district: match.district,
-          address: match.address,
-          coordinates: { latitude: match.latitude, longitude: match.longitude },
-          operatingSeason: match.operatingSeason,
-          supportedCommodities: match.supportedCommodities,
-          dailyCapacityQuintals: 500,
-          maxSimultaneousVehicles: 15,
-          operatingHours: { openTime: '09:00', closeTime: '18:00' },
-          isActive: match.isActive,
-        });
-        await centre.save();
-      } else {
+      try {
+        const govCentres = await this.govProvider.getCentres();
+        const match = govCentres.find((c) => c.centreId === centreId);
+        if (match) {
+          centre = new this.centreModel({
+            centreId: match.centreId,
+            name: match.name,
+            agencyName: match.agencyName,
+            state: match.state,
+            district: match.district,
+            address: match.address,
+            coordinates: { latitude: match.latitude, longitude: match.longitude },
+            operatingSeason: match.operatingSeason,
+            supportedCommodities: match.supportedCommodities,
+            dailyCapacityQuintals: 500,
+            maxSimultaneousVehicles: 15,
+            operatingHours: { openTime: '09:00', closeTime: '18:00' },
+            isActive: match.isActive,
+          });
+          await centre.save();
+        }
+      } catch (err: any) {
+        this.logger.warn(`Government centre lookup unavailable (${err.message}).`);
+      }
+
+      if (!centre) {
         throw new NotFoundException(`Procurement centre '${centreId}' not found.`);
       }
     }
@@ -205,12 +218,19 @@ export class CentresService {
   ): Promise<CentreCapacityOverview> {
     const centre = await this.findByCentreId(centreId);
 
-    // Fetch authoritative sanctioned capacity from GovernmentDataProvider
-    const govCapacity = await this.govProvider.getCentreCapacity(centreId, date);
-    const sanctionedCapacity = Math.min(
-      centre.dailyCapacityQuintals,
-      govCapacity.sanctionedDailyCapacityQuintals,
-    );
+    // Fetch authoritative sanctioned capacity from GovernmentDataProvider (with Section 21 fallback)
+    let sanctionedCapacity = centre.dailyCapacityQuintals;
+    try {
+      const govCapacity = await this.govProvider.getCentreCapacity(centreId, date);
+      sanctionedCapacity = Math.min(
+        centre.dailyCapacityQuintals,
+        govCapacity.sanctionedDailyCapacityQuintals,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `Government centre capacity check unavailable (${err.message}). Using local centre capacity: ${centre.dailyCapacityQuintals}Q`,
+      );
+    }
 
     const totalBooked = bookedQuantityOverride ?? 0;
     const remaining = Math.max(0, sanctionedCapacity - totalBooked);
@@ -321,5 +341,47 @@ export class CentresService {
         isActive: true,
       },
     ]);
+  }
+
+  private async seedLocalFallbackCentres(): Promise<void> {
+    const fallbackCentres = [
+      {
+        centreId: 'CENTRE-IND-01',
+        name: 'Indore Central Mandi Terminal',
+        agencyName: 'NAFED / MP State Civil Supplies',
+        state: 'Madhya Pradesh',
+        district: 'Indore',
+        address: 'Sector 3, Mandi Yard, Indore, MP 452001',
+        coordinates: { latitude: 22.7196, longitude: 75.8577 },
+        operatingSeason: 'Rabi 2026',
+        supportedCommodities: ['WHEAT', 'CHANA', 'MUSTARD'],
+        dailyCapacityQuintals: 500,
+        maxSimultaneousVehicles: 15,
+        operatingHours: { openTime: '09:00', closeTime: '18:00' },
+        isActive: true,
+      },
+      {
+        centreId: 'CENTRE-SNW-02',
+        name: 'Sanwer PACS Procurement Hub',
+        agencyName: 'MP State Cooperative Marketing Federation',
+        state: 'Madhya Pradesh',
+        district: 'Indore',
+        address: 'Main Road, Sanwer, Indore, MP 453551',
+        coordinates: { latitude: 22.9772, longitude: 75.8272 },
+        operatingSeason: 'Rabi 2026',
+        supportedCommodities: ['WHEAT', 'CHANA'],
+        dailyCapacityQuintals: 350,
+        maxSimultaneousVehicles: 10,
+        operatingHours: { openTime: '09:00', closeTime: '17:00' },
+        isActive: true,
+      },
+    ];
+
+    for (const c of fallbackCentres) {
+      const exists = await this.centreModel.findOne({ centreId: c.centreId }).exec();
+      if (!exists) {
+        await this.centreModel.create(c);
+      }
+    }
   }
 }

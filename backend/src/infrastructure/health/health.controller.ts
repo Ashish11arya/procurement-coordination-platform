@@ -52,7 +52,8 @@ export class HealthController {
         },
         governmentIntegration: {
           provider: providerName,
-          status: 'operational',
+          status: (this.govProvider as any)?.getCircuitBreakerMetrics?.()?.state === 'OPEN' ? 'degraded' : 'operational',
+          circuitBreaker: (this.govProvider as any)?.getCircuitBreakerMetrics?.() || { state: 'CLOSED' },
         },
       },
     };

@@ -71,6 +71,15 @@ export class Booking {
 
   @Prop({ type: Date, default: null })
   cancelledAt?: Date | null;
+
+  @Prop({ type: String, enum: ['PENDING', 'SYNCED', 'FAILED'], default: 'PENDING', index: true })
+  govSyncStatus?: string;
+
+  @Prop({ type: String, default: null })
+  govSyncError?: string | null;
+
+  @Prop({ type: Boolean, default: false })
+  isProvisionalEligibility?: boolean;
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);

@@ -83,7 +83,7 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
 
     static find(query: any = {}) {
       const filterFn = createFilterFn(query);
-      return {
+      const queryObj = {
         sort: function () {
           return this;
         },
@@ -93,10 +93,23 @@ export function createMockModel<T extends { _id?: any }>(initialData: any[] = []
         limit: function () {
           return this;
         },
+        select: function () {
+          return this;
+        },
+        lean: function () {
+          return this;
+        },
+        populate: function () {
+          return this;
+        },
         exec: async function () {
           return store.filter(filterFn).map((item) => new MockModel(item));
         },
+        then: function (resolve: any, reject: any) {
+          return this.exec().then(resolve, reject);
+        },
       };
+      return queryObj;
     }
 
     static async updateOne(query: any, update: any) {

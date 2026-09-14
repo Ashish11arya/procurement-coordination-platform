@@ -1,0 +1,31 @@
+{
+  "name": "procurement-coordination-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "National MSP Procurement Coordination Platform - Fullstack Workspace",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "build:all": "npm --prefix frontend run build && npm --prefix backend run build",
+    "build": "npm run build:all",
+    "start:prod": "node backend/dist/main",
+    "start:backend": "npm --prefix backend run start:dev",
+    "start:frontend": "npm --prefix frontend run dev",
+    "test:backend": "npm --prefix backend test"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "procurement",
+    "agriculture",
+    "msp",
+    "nestjs",
+    "react",
+    "vite"
+  ],
+  "author": "National Procurement Coordination Team",
+  "license": "UNLICENSED"
+}

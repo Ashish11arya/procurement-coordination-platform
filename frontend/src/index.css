@@ -1,0 +1,926 @@
+/* ==========================================================================
+   National Procurement Coordination Platform - Government Design System
+   Authoritative Government Digital Public Infrastructure (Sections 27-30)
+   ========================================================================== */
+
+:root {
+  --gov-navy-dark: #061826;
+  --gov-navy: #0A2540;
+  --gov-navy-light: #183B5E;
+  --gov-saffron: #E06A1B;
+  --gov-saffron-light: #FFF4EC;
+  --gov-green: #107C41;
+  --gov-green-light: #EBF8F0;
+  --gov-red: #D32F2F;
+  --gov-red-light: #FDE8E8;
+  --gov-amber: #D97706;
+  --gov-amber-light: #FEF3C7;
+  --gov-blue: #0284C7;
+  --gov-blue-light: #E0F2FE;
+
+  --bg-main: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+  --border-color: #E2E8F0;
+  --border-dark: #CBD5E1;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-inverse: #FFFFFF;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   Top Government Masthead
+   ========================================================================== */
+.gov-masthead {
+  background: linear-gradient(135deg, var(--gov-navy-dark) 0%, var(--gov-navy) 100%);
+  color: var(--text-inverse);
+  border-bottom: 4px solid var(--gov-saffron);
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.gov-masthead-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.85rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.gov-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.gov-emblem svg {
+  display: block;
+}
+
+.gov-title h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+}
+
+.gov-title p {
+  font-size: 0.8rem;
+  color: #94A3B8;
+  margin-top: 2px;
+}
+
+.gov-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.persona-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #F8FAFC;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 124, 65, 0.2);
+  border: 1px solid rgba(16, 124, 65, 0.4);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4ADE80;
+}
+
+.live-indicator.disconnected {
+  background: rgba(211, 47, 47, 0.2);
+  border-color: rgba(211, 47, 47, 0.4);
+  color: #F87171;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #22C55E;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.live-indicator.disconnected .pulse-dot {
+  background: #EF4444;
+  animation: none;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.lang-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.lang-toggle button {
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-toggle button.active {
+  background: var(--gov-saffron);
+  color: #FFFFFF;
+}
+
+/* ==========================================================================
+   Portal Navigation Bar
+   ========================================================================== */
+.portal-nav {
+  background: var(--gov-navy-light);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.portal-nav-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.nav-tab {
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.nav-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab.active {
+  color: #FFFFFF;
+  border-bottom-color: var(--gov-saffron);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Sub-Navigation for Specific Portals */
+.sub-nav {
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 0;
+  margin-bottom: 1.5rem;
+}
+
+.sub-nav-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+}
+
+.sub-nav-link {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sub-nav-link:hover {
+  background: var(--bg-subtle);
+  color: var(--gov-navy);
+}
+
+.sub-nav-link.active {
+  background: var(--gov-saffron-light);
+  color: var(--gov-saffron);
+  border: 1px solid rgba(224, 106, 27, 0.3);
+}
+
+/* ==========================================================================
+   Layout Containers & Cards
+   ========================================================================== */
+.main-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  min-height: calc(100vh - 280px);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.card-header h2, .card-header h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gov-navy);
+}
+
+/* ==========================================================================
+   Hero & Identity Cards
+   ========================================================================== */
+.farmer-greeting-card {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+  border: 1px solid var(--border-color);
+  border-left: 5px solid var(--gov-green);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.farmer-info {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.avatar-badge {
+  width: 52px;
+  height: 52px;
+  background: var(--gov-green-light);
+  color: var(--gov-green);
+  border: 2px solid var(--gov-green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.token-hero-card {
+  background: linear-gradient(135deg, var(--gov-navy) 0%, var(--gov-navy-light) 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  grid-template-columns: 240px 1fr 200px;
+  gap: 2rem;
+  align-items: center;
+}
+
+@media (max-width: 992px) {
+  .token-hero-card {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.token-meta {
+  text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  padding-right: 1.5rem;
+}
+
+@media (max-width: 992px) {
+  .token-meta {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-right: 0;
+    padding-bottom: 1.5rem;
+  }
+}
+
+.token-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+.token-number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 4px 0;
+}
+
+.token-subtext {
+  font-size: 0.8rem;
+  color: #CBD5E1;
+}
+
+.token-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+}
+
+.token-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.detail-value.highlight {
+  color: #FBBF24;
+}
+
+.barcode-card {
+  background: #FFFFFF;
+  color: #000000;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.barcode-lines {
+  width: 100%;
+  height: 48px;
+  background: repeating-linear-gradient(
+    90deg,
+    #000 0px, #000 2px,
+    #fff 2px, #fff 4px,
+    #000 4px, #000 8px,
+    #fff 8px, #fff 11px,
+    #000 11px, #000 13px,
+    #fff 13px, #fff 16px,
+    #000 16px, #000 18px,
+    #fff 18px, #fff 21px
+  );
+}
+
+.barcode-text {
+  font-family: monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ==========================================================================
+   4-Stage Physical Yard Stepper
+   ========================================================================== */
+.stages-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  position: relative;
+}
+
+.stage-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  z-index: 2;
+}
+
+.step-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 3px solid #FFFFFF;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-content strong {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.step-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.stage-connector {
+  flex: 1;
+  height: 4px;
+  background: #E2E8F0;
+  margin: 0 8px;
+  transition: all 0.3s ease;
+}
+
+.stage-step.completed .step-circle {
+  background: var(--gov-green);
+  color: #FFFFFF;
+}
+
+.stage-step.in-progress .step-circle {
+  background: var(--gov-saffron);
+  color: #FFFFFF;
+  animation: pulse 2s infinite;
+}
+
+.stage-connector.active {
+  background: var(--gov-green);
+}
+
+/* ==========================================================================
+   Telemetry & KPI Grids
+   ========================================================================== */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.telemetry-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.telemetry-icon {
+  font-size: 2rem;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.telemetry-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.telemetry-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.telemetry-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--gov-navy);
+  margin: 2px 0;
+}
+
+.telemetry-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Progress Meters */
+.yard-meters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.meter-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.4s ease;
+}
+
+.fill-blue { background: var(--gov-blue); }
+.fill-amber { background: var(--gov-amber); }
+.fill-green { background: var(--gov-green); }
+.fill-red { background: var(--gov-red); }
+
+.meter-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Data Tables
+   ========================================================================== */
+.table-responsive {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.data-table th {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.data-table tbody tr:hover {
+  background: #F8FAFC;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ==========================================================================
+   Status Pills & Badges
+   ========================================================================== */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.status-active, .status-completed {
+  background: var(--gov-green-light);
+  color: var(--gov-green);
+  border: 1px solid rgba(16, 124, 65, 0.3);
+}
+
+.status-waiting {
+  background: var(--gov-blue-light);
+  color: var(--gov-blue);
+  border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.status-maintenance, .status-danger {
+  background: var(--gov-red-light);
+  color: var(--gov-red);
+  border: 1px solid rgba(211, 47, 47, 0.3);
+}
+
+.status-warning {
+  background: var(--gov-amber-light);
+  color: var(--gov-amber);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-primary { background: var(--gov-navy-light); color: #FFFFFF; }
+.badge-success { background: var(--gov-green-light); color: var(--gov-green); }
+.badge-warning { background: var(--gov-amber-light); color: var(--gov-amber); }
+.badge-danger { background: var(--gov-red-light); color: var(--gov-red); }
+
+/* ==========================================================================
+   Buttons & Form Controls
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.55rem 1.15rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: var(--gov-saffron);
+  color: #FFFFFF;
+}
+.btn-primary:hover {
+  background: #C85A14;
+}
+
+.btn-navy {
+  background: var(--gov-navy);
+  color: #FFFFFF;
+}
+.btn-navy:hover {
+  background: var(--gov-navy-dark);
+}
+
+.btn-success {
+  background: var(--gov-green);
+  color: #FFFFFF;
+}
+.btn-success:hover {
+  background: #0D6937;
+}
+
+.btn-danger {
+  background: var(--gov-red);
+  color: #FFFFFF;
+}
+.btn-danger:hover {
+  background: #B71C1C;
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--border-dark);
+  color: var(--text-primary);
+}
+.btn-outline:hover {
+  background: var(--bg-subtle);
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  border-radius: 4px;
+}
+
+.btn-group-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.88rem;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  background: #FFFFFF;
+  color: var(--text-primary);
+  transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--gov-blue);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+/* ==========================================================================
+   Wire Telemetry Console
+   ========================================================================== */
+.telemetry-console {
+  background: #0F172A;
+  border: 1px solid #1E293B;
+  border-radius: var(--radius-md);
+  margin-top: 2rem;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.telemetry-console-header {
+  background: #1E293B;
+  padding: 0.65rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #E2E8F0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.telemetry-console-body {
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #94A3B8;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+}
+
+.log-entry {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.log-time { color: #64748B; flex-shrink: 0; }
+.log-url { color: #E2E8F0; word-break: break-all; }
+.log-status { color: #4ADE80; font-weight: 700; }
+.log-status.error { color: #F87171; }
+
+/* ==========================================================================
+   Government Footer
+   ========================================================================== */
+.gov-footer {
+  background: var(--gov-navy-dark);
+  color: #94A3B8;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.5rem 0;
+  font-size: 0.8rem;
+  margin-top: 3rem;
+}
+
+.gov-footer-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-links {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.footer-links strong {
+  color: var(--gov-saffron);
+}

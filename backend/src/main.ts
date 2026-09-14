@@ -38,8 +38,30 @@ async function bootstrap() {
   ];
   const frontendDir = candidateFrontendDirs.find((dir) => fs.existsSync(dir));
   if (frontendDir) {
-    app.use(express.static(frontendDir));
-    logger.log(`[Static] Serving frontend UI from: ${frontendDir}`);
+    const distDir = path.join(frontendDir, 'dist');
+    const staticDir = fs.existsSync(distDir) ? distDir : frontendDir;
+    app.use(express.static(staticDir));
+    logger.log(`[Static] Serving frontend UI from: ${staticDir}`);
+
+    // SPA client-side routing fallback for non-API routes
+    app.use((req, res, next) => {
+      if (
+        req.method === 'GET' &&
+        !req.path.startsWith('/api') &&
+        !req.path.startsWith('/health') &&
+        !req.path.startsWith('/ready') &&
+        !req.path.startsWith('/live') &&
+        !req.path.startsWith('/socket.io')
+      ) {
+        const indexPath = fs.existsSync(path.join(staticDir, 'index.html'))
+          ? path.join(staticDir, 'index.html')
+          : path.join(frontendDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          return res.sendFile(indexPath);
+        }
+      }
+      next();
+    });
   }
 
   // Cookie Parser for HttpOnly Refresh Tokens

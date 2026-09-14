@@ -22,6 +22,8 @@ export interface FarmerEligibilityRecord {
   validUntil: string; // ISO Date string
   isEligible: boolean;
   rejectionReason?: string;
+  isGovernmentVerified?: boolean;
+  verificationStatus?: string;
 }
 
 export interface GovernmentCentreRecord {

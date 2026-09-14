@@ -1,4 +1,14 @@
-import { IsNotEmpty, Matches, IsString, MinLength, IsOptional, IsNumber } from 'class-validator';
+import {
+  IsNotEmpty,
+  Matches,
+  IsString,
+  MinLength,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  Equals,
+  IsArray,
+} from 'class-validator';
 
 export class RegisterFarmerDto {
   @IsNotEmpty({ message: 'Mobile number is required' })
@@ -29,4 +39,23 @@ export class RegisterFarmerDto {
   @IsOptional()
   @IsNumber()
   landAreaAcres?: number;
+
+  /**
+   * DPDP Act 2023 Explicit Consent Requirement
+   * Must be explicitly confirmed (checkbox cannot be pre-selected)
+   */
+  @IsNotEmpty({ message: 'Consent confirmation is required' })
+  @IsBoolean({ message: 'Consent must be a boolean flag' })
+  @Equals(true, {
+    message: 'Explicit consent to data sharing with government coordination systems under the DPDP Act 2023 is mandatory to register.',
+  })
+  consentToDataSharing: boolean;
+
+  @IsOptional()
+  @IsString()
+  consentVersion?: string;
+
+  @IsOptional()
+  @IsArray()
+  consentScopes?: string[];
 }

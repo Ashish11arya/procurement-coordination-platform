@@ -57,10 +57,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
         return;
       }
 
-      const secret = this.configService.get<string>('JWT_SECRET', 'sih-procurement-secret-key-production-grade');
-      const payload = this.jwtService.verify(rawToken, { secret });
+      const secret =
+        this.configService.get<string>('JWT_ACCESS_SECRET') ||
+        this.configService.get<string>('JWT_SECRET') ||
+        'dev_jwt_access_secret_change_in_production_min32chars';
+      const payload: any = this.jwtService.verify(rawToken, { secret });
+      payload.userId = payload.sub || payload.id;
+      payload.id = payload.userId;
       client.data.user = payload;
-      this.logger.log(`Client connected: ${client.id} (User: ${payload.id || payload.sub}, Role: ${payload.role})`);
+      this.logger.log(`Client connected: ${client.id} (User: ${payload.userId}, Role: ${payload.role})`);
     } catch (err: any) {
       this.logger.warn(`Connection rejected: Invalid token - ${err.message} (Client: ${client.id})`);
       client.disconnect();

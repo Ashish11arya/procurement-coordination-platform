@@ -5,13 +5,19 @@ import {
   ConflictException,
   ForbiddenException,
   Inject,
+  Optional,
   Logger,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { ModuleRef } from '@nestjs/core';
+import { InjectModel, getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+
+import { ConsentRecord, ConsentRecordDocument, ConsentStatus } from '../../compliance/schemas/consent.schema';
+import { DataProcessingLogService } from '../../compliance/services/data-processing-log.service';
+import { ProcessingPurpose, LawfulBasis, ProcessingAction } from '../../compliance/schemas/data-processing-log.schema';
 
 import { User, UserDocument } from '../schemas/user.schema';
 import { RefreshToken, RefreshTokenDocument } from '../schemas/refresh-token.schema';
@@ -60,6 +66,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Inject(GOVERNMENT_DATA_PROVIDER)
     private readonly govProvider: GovernmentDataProvider,
+    @Optional() private readonly moduleRef?: ModuleRef,
   ) {
     this.jwtAccessSecret = this.configService.get<string>(
       'JWT_ACCESS_SECRET',
@@ -69,6 +76,24 @@ export class AuthService {
       'JWT_ACCESS_EXPIRES_IN',
       '15m',
     );
+  }
+
+  private get consentModel(): Model<ConsentRecordDocument> | null {
+    if (!this.moduleRef) return null;
+    try {
+      return this.moduleRef.get<Model<ConsentRecordDocument>>(getModelToken(ConsentRecord.name), { strict: false });
+    } catch {
+      return null;
+    }
+  }
+
+  private get dataProcessingLogService(): DataProcessingLogService | null {
+    if (!this.moduleRef) return null;
+    try {
+      return this.moduleRef.get<DataProcessingLogService>(DataProcessingLogService, { strict: false });
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -91,8 +116,15 @@ export class AuthService {
     let user = await this.userModel.findOne({ mobile: dto.mobile }).exec();
 
     if (!user) {
-      // Query Government Data Provider for baseline record
-      const govRecord = await this.govProvider.getFarmer(dto.mobile);
+      // Query Government Data Provider for baseline record (with Section 21 fallback)
+      let govRecord: any = null;
+      try {
+        govRecord = await this.govProvider.getFarmer(dto.mobile);
+      } catch (err: any) {
+        this.logger.warn(
+          `Government farmer lookup unavailable (${err.message}). Creating local baseline profile.`,
+        );
+      }
 
       user = new this.userModel({
         mobile: dto.mobile,
@@ -145,20 +177,35 @@ export class AuthService {
     dto: RegisterFarmerDto,
     meta: ClientMetadata,
   ): Promise<{ user: Partial<User>; tokens: TokenPair }> {
+    if (!dto.consentToDataSharing) {
+      throw new BadRequestException(
+        'Explicit consent to data sharing under the DPDP Act 2023 is mandatory for registration.',
+      );
+    }
+
     const existing = await this.userModel.findOne({ mobile: dto.mobile }).exec();
     if (existing) {
       throw new ConflictException('A farmer with this mobile number is already registered. Please login via OTP.');
     }
 
-    // Check with GovernmentDataProvider for official identity/registration
-    const govRecord = await this.govProvider.getFarmer(dto.mobile);
+    // Check with GovernmentDataProvider for official identity/registration (with Section 21 fallback)
+    let govRecord: any = null;
+    try {
+      govRecord = await this.govProvider.getFarmer(dto.mobile);
+    } catch (err: any) {
+      this.logger.warn(
+        `Government farmer registration lookup unavailable (${err.message}). Using self-declared profile.`,
+      );
+    }
+
+    const farmerId = govRecord?.farmerId || `FARMER-${Date.now()}`;
 
     const user = new this.userModel({
       mobile: dto.mobile,
       name: dto.name,
       role: Role.FARMER,
-      farmerId: govRecord?.farmerId || `FARMER-${Date.now()}`,
-      registrationNumber: govRecord?.registrationNumber,
+      farmerId,
+      registrationNumber: govRecord?.registrationNumber || `REG-${dto.mobile.slice(-5)}`,
       state: dto.state || govRecord?.state,
       district: dto.district || govRecord?.district,
       subDistrict: dto.subDistrict || govRecord?.subDistrict,
@@ -169,6 +216,54 @@ export class AuthService {
     });
 
     await user.save();
+
+    // Persist immutable DPDP consent record
+    if (this.consentModel) {
+      const consentRecord = new this.consentModel({
+        userId: user._id,
+        farmerId,
+        consentVersion: dto.consentVersion || 'DPDP-2023-V1.0',
+        purposes: dto.consentScopes && dto.consentScopes.length > 0 ? dto.consentScopes : [
+          'MSP_PROCUREMENT_COORDINATION',
+          'YARD_SCHEDULING_AND_ENTRY',
+          'DIRECT_BENEFIT_TRANSFER_PAYMENT',
+          'SMS_NOTIFICATION_DISPATCH',
+        ],
+        ipAddress: meta.ipAddress || '127.0.0.1',
+        userAgent: meta.userAgent,
+        privacyPolicyVersion: 'DPDP-2023-V1.0',
+        privacyPolicyUrl: '/docs/legal/PRIVACY_POLICY.md',
+        status: ConsentStatus.ACTIVE,
+        grantedAt: new Date(),
+      });
+      await consentRecord.save();
+    }
+
+    // Record PII processing activity under DPDP Section 8
+    if (this.dataProcessingLogService) {
+      await this.dataProcessingLogService.logAccess({
+        accessor: {
+          userId: user._id.toString(),
+          role: Role.FARMER,
+          name: user.name,
+          ipAddress: meta.ipAddress || '127.0.0.1',
+          userAgent: meta.userAgent,
+        },
+        dataSubject: {
+          farmerId,
+          userId: user._id.toString(),
+          mobile: user.mobile,
+        },
+        dataCategoriesAccessed: ['NAME', 'MOBILE', 'LAND_RECORDS', 'GEO_LOCATION'],
+        processingPurpose: ProcessingPurpose.FARMER_REGISTRATION_ONBOARDING,
+        lawfulBasis: LawfulBasis.CONSENT_SEC_6,
+        action: ProcessingAction.UPDATE,
+        details: 'Farmer completed registration with affirmative DPDP consent.',
+      }).catch((err) => {
+        this.logger.warn(`Non-blocking failure logging registration processing activity: ${err.message}`);
+      });
+    }
+
     const tokens = await this.issueTokenPair(user, meta);
 
     return {

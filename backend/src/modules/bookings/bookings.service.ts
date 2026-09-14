@@ -37,6 +37,7 @@ import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
   GovernmentDataProvider,
   GOVERNMENT_DATA_PROVIDER,
+  FarmerEligibilityRecord,
 } from '../integrations/contracts/government-data-provider.interface';
 
 const ACTIVE_BOOKING_STATUSES = [
@@ -104,11 +105,33 @@ export class BookingsService {
     const farmer = await this.farmersService.getProfile(userId);
     const commodityCode = dto.commodityCode.toUpperCase();
 
-    // 3. Authoritative Government Eligibility Validation (Section 3 & 4)
-    const eligibility = await this.govProvider.getFarmerEligibility(
-      farmer.farmerId,
-      commodityCode,
-    );
+    // 3. Authoritative Government Eligibility Validation (Section 3, 4 & 21)
+    let eligibility: FarmerEligibilityRecord;
+    try {
+      eligibility = await this.govProvider.getFarmerEligibility(
+        farmer.farmerId,
+        commodityCode,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `Government eligibility check unavailable (${err.message}). Activating Section 21 offline provisional eligibility mode.`,
+      );
+      const estimatedQuota = Math.max(50, Math.round((farmer.landAreaAcres || 4) * 25));
+      eligibility = {
+        farmerId: farmer.farmerId,
+        commodityCode,
+        isEligible: true,
+        sanctionedQuantityQuintals: estimatedQuota,
+        alreadyProcuredQuantityQuintals: 0,
+        remainingEligibleQuantityQuintals: estimatedQuota,
+        season: 'RABI_2026',
+        year: 2026,
+        validUntil: new Date(Date.now() + 90 * 86400000).toISOString(),
+        isGovernmentVerified: false,
+        verificationStatus: 'PENDING_GOVERNMENT_SYNC',
+      };
+    }
+
     if (!eligibility.isEligible) {
       throw new BadRequestException(
         `Farmer ${farmer.farmerId} is not officially eligible for ${commodityCode} procurement.`,
@@ -173,14 +196,21 @@ export class BookingsService {
         0,
       );
 
-      const govCapacity = await this.govProvider.getCentreCapacity(
-        dto.centreId,
-        dto.bookingDate,
-      );
-      const dailySanctionedCapacity = Math.min(
-        centre.dailyCapacityQuintals,
-        govCapacity.sanctionedDailyCapacityQuintals,
-      );
+      let dailySanctionedCapacity = centre.dailyCapacityQuintals;
+      try {
+        const govCapacity = await this.govProvider.getCentreCapacity(
+          dto.centreId,
+          dto.bookingDate,
+        );
+        dailySanctionedCapacity = Math.min(
+          centre.dailyCapacityQuintals,
+          govCapacity.sanctionedDailyCapacityQuintals,
+        );
+      } catch (err: any) {
+        this.logger.warn(
+          `Government centre capacity check unavailable (${err.message}). Defaulting to local centre ceiling: ${centre.dailyCapacityQuintals}Q`,
+        );
+      }
 
       if (currentDailyBooked + dto.quantityQuintals > dailySanctionedCapacity) {
         const remainingAvailable = Math.max(0, dailySanctionedCapacity - currentDailyBooked);
@@ -268,7 +298,11 @@ export class BookingsService {
       endTime,
     };
 
-    // 9. Persist Booking and Vehicles (Section 12 & 15)
+    // 9. Persist Booking and Vehicles (Section 12, 15 & 21)
+    const isProvisional =
+      !eligibility.isGovernmentVerified ||
+      eligibility.verificationStatus === 'PENDING_GOVERNMENT_SYNC';
+
     const booking = new this.bookingModel({
       bookingId,
       tokenNumber,
@@ -281,6 +315,11 @@ export class BookingsService {
       vehicleCount: dto.vehicles.length,
       status: BookingStatus.BOOKED,
       idempotencyKey: idempotencyKey || null,
+      govSyncStatus: isProvisional ? 'PENDING' : 'SYNCED',
+      govSyncError: isProvisional
+        ? 'PROVISIONAL_ELIGIBILITY_CIRCUIT_BREAKER_ACTIVE: Offline booking continuity granted'
+        : null,
+      isProvisionalEligibility: isProvisional,
     });
     await booking.save();
 

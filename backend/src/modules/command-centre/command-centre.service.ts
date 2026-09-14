@@ -423,13 +423,24 @@ export class CommandCentreService {
       .countDocuments({ govSyncStatus: GovSyncStatus.PENDING })
       .exec();
 
-    // Query MockGovernmentProvider
-    const govStatus = await this.govProvider.syncStatus('ALL_CENTRES');
+    // Query GovernmentProvider via Circuit Breaker
+    let govStatus: any;
+    try {
+      govStatus = await this.govProvider.syncStatus('ALL_CENTRES');
+    } catch (err: any) {
+      govStatus = {
+        isHealthy: false,
+        lastError: err.message,
+        lastSyncTimestamp: new Date().toISOString(),
+      };
+    }
+
+    const circuitBreaker = (this.govProvider as any)?.getCircuitBreakerMetrics?.() || null;
 
     // Determine overall health status
     let healthStatus: 'HEALTHY' | 'DEGRADED' | 'DOWN' = 'HEALTHY';
-    if (!govStatus.isHealthy) {
-      healthStatus = 'DOWN';
+    if (circuitBreaker?.state === 'OPEN' || !govStatus.isHealthy) {
+      healthStatus = 'DEGRADED';
     } else if (failedRecords > 0 && totalRecords > 0 && failedRecords / totalRecords >= 0.05) {
       healthStatus = 'DEGRADED';
     } else if (failedRecords > 0) {
@@ -439,7 +450,7 @@ export class CommandCentreService {
     return {
       status: healthStatus,
       provider: this.govProvider.providerName,
-      isProviderConnected: govStatus.isHealthy,
+      isProviderConnected: govStatus.isHealthy && circuitBreaker?.state !== 'OPEN',
       totalSyncAttempts: totalRecords,
       successfulSyncCount: syncedRecords,
       failedSyncCount: failedRecords,
@@ -447,8 +458,9 @@ export class CommandCentreService {
       failureRatePercentage:
         totalRecords > 0 ? Number(((failedRecords / totalRecords) * 100).toFixed(1)) : 0,
       lastSyncTimestamp: govStatus.lastSyncTimestamp,
-      lastError: govStatus.lastError,
-      activeMode: 'DEVELOPMENT_MOCK',
+      lastError: govStatus.lastError || circuitBreaker?.lastTripReason,
+      circuitBreaker: circuitBreaker || { state: 'CLOSED' },
+      activeMode: this.govProvider.providerName === 'ESAMRIDHI_GOVERNMENT_PROVIDER' ? 'PRODUCTION_ESAMRIDHI' : 'DEVELOPMENT_MOCK',
     };
   }
 }
